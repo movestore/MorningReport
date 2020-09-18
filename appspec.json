@@ -25,14 +25,14 @@
       "id": "mig7d_dist",
       "name": "Migration distance (7 days)",
       "description": "Define radius (in m) of which the animal must move out to define as migration behaviour.",
-      "defaultValue": 100000,
+      "defaultValue": 100000.0,
       "type": "DOUBLE"
     },
     {
 	  "id": "dead7d_dist",
       "name": "Dead indication distance (7 days)",
       "description": "Define radius (in m) in which the animal must remain to be defined as dead.",
-      "defaultValue": 100,
+      "defaultValue": 100.0,
       "type": "DOUBLE"
 	}
   ],
