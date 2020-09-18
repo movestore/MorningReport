@@ -4,7 +4,7 @@
       "id": "time_now",
       "name": "Reference timestamp",
       "description": "Define you reference time, normally this is NOW.",
-      "defaultValue": null,
+      "defaultValue": "2020-09-18 08:00:00",
       "type": "INSTANT"
     },
 	{
@@ -25,14 +25,14 @@
       "id": "mig7d_dist",
       "name": "Migration distance (7 days)",
       "description": "Define radius (in m) of which the animal must move out to define as migration behaviour.",
-      "defaultValue": null,
+      "defaultValue": 100000,
       "type": "DOUBLE"
     },
     {
 	  "id": "dead7d_dist",
       "name": "Dead indication distance (7 days)",
       "description": "Define radius (in m) in which the animal must remain to be defined as dead.",
-      "defaultValue": null,
+      "defaultValue": 100,
       "type": "DOUBLE"
 	}
   ],
@@ -64,6 +64,9 @@
       },
 	        {
         "name": "dplyr"
+      },
+      {
+        "name": "sf"
       },
 	        {
         "name": "leaflet"

@@ -8,9 +8,13 @@ library('geosphere')
 library('DT')
 library('dplyr')
 library('leaflet')
+library('sf')
 
 #setwd("/root/app/")
 Sys.setenv(tz="GMT")
+
+#names(data@data[,!sapply(data@data,function(x) all(is.na(x)))] %>% select_if(is.numeric))
+#names(data@data[,!sapply(data@data,function(x) all(is.na(x)))] %>% select_if(is.numeric))
 
 
 shinyModuleUserInterface <- function(id, label, time_now=NULL, posi_lon=NULL, posi_lat=NULL, mig7d_dist, dead7d_dist) {
@@ -31,9 +35,9 @@ shinyModuleUserInterface <- function(id, label, time_now=NULL, posi_lon=NULL, po
                      choices = c("ascending","descending")),
         sliderInput(ns("start_time"),
                     "Choose start time for map and plots",
-                    min = time_now - as.difftime(20,units="weeks"),
-                    max = time_now,
-                    value = time_now - as.difftime(4,units="weeks"),
+                    min = as.POSIXct(time_now) - as.difftime(20,units="weeks"),
+                    max = as.POSIXct(time_now),
+                    value = as.POSIXct(time_now) - as.difftime(4,units="weeks"),
                     timeFormat = "%Y-%m-%d %H:%M:%S", ticks = F, animate = T),
 
         pickerInput(inputId =ns("attr"),
@@ -85,7 +89,7 @@ shinyModuleConfiguration <- function(id, input) {
 }
 
 
-shinyModule <- function(input, output, session, data, time_now, posi_lon=NULL, posi_lat=NULL, mig7d_dist, dead7d_dist) {
+shinyModule <- function(input, output, session, data, time_now=NULL, posi_lon=NULL, posi_lat=NULL, mig7d_dist, dead7d_dist) {
   dataObj <- reactive({ data })
   current <- reactiveVal(data)
   if (is.null(time_now)) time_now <- Sys.time() else time_now <- as.POSIXct(time_now)
@@ -113,16 +117,19 @@ shinyModule <- function(input, output, session, data, time_now, posi_lon=NULL, p
     
     event <- foreach(datai = data_spl, .combine=c) %do% {
       ix <- which(timestamps(datai) <= time_now & timestamps(datai) >= time_now-(7*24*60*60))
-      datai7d <- datai[ix,]
-      meanlon <- mean(coordinates(datai7d)[,1])
-      meanlat <- mean(coordinates(datai7d)[,2])
-      if (any(distVincentyEllipsoid(coordinates(datai7d),c(meanlon,meanlat))>100000))
+      if (length(ix)>0) 
       {
-        "migration"
-      } else if (all(distVincentyEllipsoid(coordinates(datai7d),c(meanlon,meanlat))<100))
-      {
-        "dead"
-      } else "-"
+        datai7d <- datai[ix,]
+        meanlon <- mean(coordinates(datai7d)[,1])
+        meanlat <- mean(coordinates(datai7d)[,2])
+        if (any(distVincentyEllipsoid(coordinates(datai7d),c(meanlon,meanlat))>100000))
+        {
+          "migration"
+        } else if (all(distVincentyEllipsoid(coordinates(datai7d),c(meanlon,meanlat))<100))
+        {
+          "dead"
+        } else "-"
+      } else "no data"
     }
     
     posis24h <- foreach(datai = data_spl, .combine=c) %do% {
@@ -135,11 +142,11 @@ shinyModule <- function(input, output, session, data, time_now, posi_lon=NULL, p
     }
     displ24h <- foreach(datai = data_spl, .combine=c) %do% {
       ix <- which(timestamps(datai) <= time_now & timestamps(datai) >= time_now-(24*60*60))
-      paste(round(sum(distance(datai[ix,]))/1000,digits=3),"km") #unit = km
+      if (length(ix)>0) paste(round(sum(distance(datai[ix,]))/1000,digits=3),"km") else NA
     }
     displ7d <- foreach(datai = data_spl, .combine=c) %do% {
       ix <- which(timestamps(datai) <= time_now & timestamps(datai) >= time_now-(7*24*60*60))
-      paste(round(sum(distance(datai[ix,]))/1000,digits=3),"km") #unit = km
+      if (length(ix)>0) paste(round(sum(distance(datai[ix,]))/1000,digits=3),"km") else NA
     }
     
     overview <- data.frame(ids,tags,time0,timeE,timeE_local,posis24h,posis7d,displ24h,displ7d,event)
@@ -175,7 +182,7 @@ shinyModule <- function(input, output, session, data, time_now, posi_lon=NULL, p
   
   data_sel_id <- reactive({
     dataObj()[timestamps(dataObj())>input$start_time & timestamps(dataObj())<time_now & trackId(dataObj())==selID()]
-  })
+  }) #here possible to get no data!
   
   # define attr input list from selected ID
   observeEvent(input$C, {
