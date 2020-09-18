@@ -12,9 +12,6 @@ library('leaflet')
 #setwd("/root/app/")
 Sys.setenv(tz="GMT")
 
-#names(data@data[,!sapply(data@data,function(x) all(is.na(x)))] %>% select_if(is.numeric))
-#names(data@data[,!sapply(data@data,function(x) all(is.na(x)))] %>% select_if(is.numeric))
-
 
 shinyModuleUserInterface <- function(id, label, time_now=NULL, posi_lon=NULL, posi_lat=NULL, mig7d_dist, dead7d_dist) {
   ns <- NS(id)
