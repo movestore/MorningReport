@@ -3,8 +3,8 @@
     {
       "id": "time_now",
       "name": "Reference timestamp",
-      "description": "Define you reference time, normally this is NOW.",
-      "defaultValue": "2020-09-18 08:00:00",
+      "description": "Define you reference time, if you dont enter a time, per default this is NOW.",
+      "defaultValue": null,
       "type": "INSTANT"
     },
 	{
