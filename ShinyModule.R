@@ -34,7 +34,7 @@ shinyModuleUserInterface <- function(id, label, time_now=NULL, posi_lon=NULL, po
                      label = "Choose how to sort the table",
                      choices = c("ascending","descending")),
         sliderInput(ns("start_time"),
-                    "Choose start time for map and plots",
+                    paste0("Choose start time for map and plots (reference: ",time_now,")"),
                     min = as.POSIXct(time_now) - as.difftime(20,units="weeks"),
                     max = as.POSIXct(time_now),
                     value = as.POSIXct(time_now) - as.difftime(4,units="weeks"),
@@ -122,10 +122,10 @@ shinyModule <- function(input, output, session, data, time_now=NULL, posi_lon=NU
         datai7d <- datai[ix,]
         meanlon <- mean(coordinates(datai7d)[,1])
         meanlat <- mean(coordinates(datai7d)[,2])
-        if (any(distVincentyEllipsoid(coordinates(datai7d),c(meanlon,meanlat))>100000))
+        if (any(distVincentyEllipsoid(coordinates(datai7d),c(meanlon,meanlat))>mig7d_dist))
         {
           "migration"
-        } else if (all(distVincentyEllipsoid(coordinates(datai7d),c(meanlon,meanlat))<100))
+        } else if (all(distVincentyEllipsoid(coordinates(datai7d),c(meanlon,meanlat))<dead))
         {
           "dead"
         } else "-"
@@ -153,16 +153,17 @@ shinyModule <- function(input, output, session, data, time_now=NULL, posi_lon=NU
     N <- length(overview[1,])
     for (i in seq_len(nrow(overview)))
     {
+      
       overview[i,N+1] <- sprintf(
-        if_else(i==1,
-                '<input type="radio" name="%s" value="%s"/>',
-                '<input type="radio" name="%s" value="%s"/>'),
+        '<input type="radio" name="%s" value="%s"/>',
         session$ns("C"),ids[i]
       )
       names(overview)[N+1] <- "show"
     }
-    overview
+    overview[,c(N+1,1:N)]
   })
+
+
   
   o <- reactive({
     if (input$sort_table %in% c("time0","timeE","timeE_local")) sort_tab <- as.POSIXct(overviewObj()[,input$sort_table]) else sort_tab <- overviewObj()[,input$sort_table]
@@ -171,7 +172,7 @@ shinyModule <- function(input, output, session, data, time_now=NULL, posi_lon=NU
   
   overviewObj_named <- reactive({
     overview_named <- overviewObj()
-    names(overview_named) <- c("Animal","Tag","First timestamp","Last timestamp","Last timestamp local tz","N positions last 24h","N positions last 7d","Moved distance last 24h","Moved distance last 7d","Event last 7d","Show Plots and Map")
+    names(overview_named) <- c("Show Plots and Map","Animal","Tag","First timestamp","Last timestamp","Last timestamp local tz","N positions last 24h","N positions last 7d","Moved distance last 24h","Moved distance last 7d","Event last 7d")
     overview_named
   })
   
@@ -250,13 +251,14 @@ shinyModule <- function(input, output, session, data, time_now=NULL, posi_lon=NU
 ##### table output
   output$foo <- DT::renderDataTable(
     overviewObj_named()[o(),],escape = FALSE, selection = 'none', server = FALSE,
-    options = list(dom = 't', paging = FALSE, ordering = FALSE, rownames=FALSE)
+    options = list(dom = 't', paging = FALSE, ordering = FALSE, rownames=FALSE, scrollY=250, scrollCollapse = TRUE)
   )
 
 ##### plots
-  output$attr_time <- renderPlot({
-    if (input$attr=="nsd") plot(timeObj(),nsd(),type="l",xlim=c(min(timeObj(),na.rm=TRUE),max(timeObj(),na.rm=TRUE)),ylim=c(min(nsd(),na.rm=TRUE),max(nsd(),na.rm=TRUE)),xlab="time",ylab=input$attr,col=2,lwd=2) else plot(timeObj(),attrObj(),type="l",xlim=c(min(timeObj(),na.rm=TRUE),max(timeObj(),na.rm=TRUE)),ylim=c(min(attrObj(),na.rm=TRUE),max(attrObj(),na.rm=TRUE)),xlab="time",ylab=input$attr,col=2,lwd=2)
+output$attr_time <- renderPlot({
+if (input$attr=="nsd") plot(timeObj(),nsd(),type="l",xlim=c(min(timeObj(),na.rm=TRUE),max(timeObj(),na.rm=TRUE)),ylim=c(min(nsd(),na.rm=TRUE),max(nsd(),na.rm=TRUE)),xlab="time",ylab=input$attr,col=2,lwd=2) else plot(timeObj(),attrObj(),type="l",xlim=c(min(timeObj(),na.rm=TRUE),max(timeObj(),na.rm=TRUE)),ylim=c(min(attrObj(),na.rm=TRUE),max(attrObj(),na.rm=TRUE)),xlab="time",ylab=input$attr,col=2,lwd=2)
   })
+  
   output$attr2_time <- renderPlot({
     if (input$attr2=="nsd") plot(timeObj(),nsd(),type="l",xlim=c(min(timeObj(),na.rm=TRUE),max(timeObj(),na.rm=TRUE)),ylim=c(min(nsd(),na.rm=TRUE),max(nsd(),na.rm=TRUE)),xlab="time",ylab=input$attr2,col=2,lwd=2) else plot(timeObj(),attr2Obj(),type="l",xlim=c(min(timeObj(),na.rm=TRUE),max(timeObj(),na.rm=TRUE)),ylim=c(min(attr2Obj(),na.rm=TRUE),max(attr2Obj(),na.rm=TRUE)),xlab="time",ylab=input$attr2,col=2,lwd=2)
   })

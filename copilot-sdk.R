@@ -2,7 +2,7 @@ library(jsonlite)
 source("logger.R")
 source("ShinyModule.R")
 
-inputFileName = "input_lowres_geese_74X.rds"
+inputFileName = "input_newGeese_Lat90error.rds"
 outputFileName = "output.rds"
 
 if(file.exists("configuration.json")) {
@@ -22,7 +22,7 @@ if(file.exists("configuration.json")) {
 #    args[["password"]] = "any-password"
 
 # Add your arguments of your r function here
-args[["time_now"]] = "2014-02-15 12:00:00" #"2013-09-30 12:00:00"
+args[["time_now"]] = NULL #"2014-02-15 12:00:00"
 args[["posi_lon"]] = NULL
 args[["posi_lat"]] = NULL
 args[["mig7d_dist"]] = 100000
