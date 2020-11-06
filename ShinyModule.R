@@ -125,7 +125,7 @@ shinyModule <- function(input, output, session, data, time_now=NULL, posi_lon=NU
         if (any(distVincentyEllipsoid(coordinates(datai7d),c(meanlon,meanlat))>mig7d_dist))
         {
           "migration"
-        } else if (all(distVincentyEllipsoid(coordinates(datai7d),c(meanlon,meanlat))<dead))
+        } else if (all(distVincentyEllipsoid(coordinates(datai7d),c(meanlon,meanlat))<dead7d_dist))
         {
           "dead"
         } else "-"
