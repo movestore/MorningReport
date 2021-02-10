@@ -3,35 +3,35 @@
     {
       "id": "time_now",
       "name": "Reference timestamp",
-      "description": "Define you reference time, if you dont enter a time, per default this is NOW.",
+      "description": "Define you reference time - the time from which you want to look back at your data. If your tags are still running and you are in the field, this is typically NOW. Here, if you dont enter anything, per default NOW will be used.",
       "defaultValue": null,
       "type": "INSTANT"
     },
 	{
       "id": "posi_lon",
       "name": "Longitude of reference position",
-      "description": "Select longitude of your reference position, distance to it will be calculated.",
+      "description": "Select the longitude of your reference position, i.e. if you are in the field your present location. The distance to this location will be calculated for all of your data points. If not location is provided the first position of each track is used.",
       "defaultValue": null,
       "type": "DOUBLE"
     },
     {
 	  "id": "posi_lat",
       "name": "Latitude of reference position",
-      "description": "Select latitude of your reference position, distance to it will be calculated.",
+      "description": "Select the latitude of your reference position, i.e. if you are in the field your present location. The distance to this location will be calculated for all of your data points. If not location is provided the first position of each track is used.",
       "defaultValue": null,
       "type": "DOUBLE"
 	},
 		{
       "id": "mig7d_dist",
-      "name": "Migration distance (7 days)",
-      "description": "Define radius (in m) of which the animal must move out to define as migration behaviour.",
+      "name": "Migration distance (7 days) *",
+      "description": "Define radius (in m) of which the animal must move out to define as migration behaviour. This parameter is mandatory.",
       "defaultValue": 100000.0,
       "type": "DOUBLE"
     },
     {
 	  "id": "dead7d_dist",
-      "name": "Dead indication distance (7 days)",
-      "description": "Define radius (in m) in which the animal must remain to be defined as dead.",
+      "name": "Dead indication distance (7 days) *",
+      "description": "Define radius (in m) in which the animal must remain to be defined as dead. This parameter is mandatory.",
       "defaultValue": 100.0,
       "type": "DOUBLE"
 	}

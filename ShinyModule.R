@@ -85,7 +85,7 @@ shinyModuleConfiguration <- function(id, input) {
   print(ns('dead7d_dist'))
   configuration["dead7d_dist"] <- input[[ns('dead7d_dist')]]
   
-  configuration
+  data.frame(configuration) #try if this removes the error in the UI, even if it is not completely generic
 }
 
 
@@ -96,8 +96,8 @@ shinyModule <- function(input, output, session, data, time_now=NULL, posi_lon=NU
 
   # table parameters
   overviewObj <- reactive({
-    data_spl <- move::split(dataObj())
-    ids <- namesIndiv(dataObj())
+    data_spl <- move::split(data)
+    ids <- namesIndiv(data)
     tags <- foreach(datai = data_spl, .combine=c) %do% {
       datai@data$tag_local_identifier[1]
     }
@@ -255,12 +255,13 @@ shinyModule <- function(input, output, session, data, time_now=NULL, posi_lon=NU
   )
 
 ##### plots
+## HERE: TRY AND ADAPT ERROR MESSAGES IF THERE ARE NO DATA SELECTED
 output$attr_time <- renderPlot({
-if (input$attr=="nsd") plot(timeObj(),nsd(),type="l",xlim=c(min(timeObj(),na.rm=TRUE),max(timeObj(),na.rm=TRUE)),ylim=c(min(nsd(),na.rm=TRUE),max(nsd(),na.rm=TRUE)),xlab="time",ylab=input$attr,col=2,lwd=2) else plot(timeObj(),attrObj(),type="l",xlim=c(min(timeObj(),na.rm=TRUE),max(timeObj(),na.rm=TRUE)),ylim=c(min(attrObj(),na.rm=TRUE),max(attrObj(),na.rm=TRUE)),xlab="time",ylab=input$attr,col=2,lwd=2)
+if (input$attr=="nsd") plot(timeObj(),nsd(),type="b",xlim=c(min(timeObj(),na.rm=TRUE),max(timeObj(),na.rm=TRUE)),ylim=c(min(nsd(),na.rm=TRUE),max(nsd(),na.rm=TRUE)),xlab="time",ylab="nsd (km2)",col=2,lwd=2) else plot(timeObj(),attrObj(),type="b",xlim=c(min(timeObj(),na.rm=TRUE),max(timeObj(),na.rm=TRUE)),ylim=c(min(attrObj(),na.rm=TRUE),max(attrObj(),na.rm=TRUE)),xlab="time",ylab=input$attr,col=2,lwd=2)
   })
   
   output$attr2_time <- renderPlot({
-    if (input$attr2=="nsd") plot(timeObj(),nsd(),type="l",xlim=c(min(timeObj(),na.rm=TRUE),max(timeObj(),na.rm=TRUE)),ylim=c(min(nsd(),na.rm=TRUE),max(nsd(),na.rm=TRUE)),xlab="time",ylab=input$attr2,col=2,lwd=2) else plot(timeObj(),attr2Obj(),type="l",xlim=c(min(timeObj(),na.rm=TRUE),max(timeObj(),na.rm=TRUE)),ylim=c(min(attr2Obj(),na.rm=TRUE),max(attr2Obj(),na.rm=TRUE)),xlab="time",ylab=input$attr2,col=2,lwd=2)
+    if (input$attr2=="nsd") plot(timeObj(),nsd(),type="b",xlim=c(min(timeObj(),na.rm=TRUE),max(timeObj(),na.rm=TRUE)),ylim=c(min(nsd(),na.rm=TRUE),max(nsd(),na.rm=TRUE)),xlab="time",ylab="nsd (km2)",col=2,lwd=2) else plot(timeObj(),attr2Obj(),type="b",xlim=c(min(timeObj(),na.rm=TRUE),max(timeObj(),na.rm=TRUE)),ylim=c(min(attr2Obj(),na.rm=TRUE),max(attr2Obj(),na.rm=TRUE)),xlab="time",ylab=input$attr2,col=2,lwd=2)
   })
 
   output$prop_time <- renderPlot({
