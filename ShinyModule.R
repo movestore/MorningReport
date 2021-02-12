@@ -37,15 +37,15 @@ shinyModuleUserInterface <- function(id, label, time_now=NULL, posi_lon=NULL, po
                     paste0("Choose start time for map and plots (reference: ",time_now,")"),
                     min = as.POSIXct(time_now) - as.difftime(20,units="weeks"),
                     max = as.POSIXct(time_now),
-                    value = as.POSIXct(time_now) - as.difftime(4,units="weeks"),
+                    value = as.POSIXct(time_now) - as.difftime(20,units="weeks"),
                     timeFormat = "%Y-%m-%d %H:%M:%S", ticks = F, animate = T),
 
         pickerInput(inputId =ns("attr"),
                     label = "Select which data attribute to plot",
-                    choices = c("Select ID for full attribute list"="nsd")),
+                    choices = c("net square displacement (km2)"="nsd")),
         pickerInput(inputId =ns("attr2"),
                     label = "Select which second data attribute to plot",
-                    choices = c("Select ID for full attribute list"="nsd")),
+                    choices = c("net square displacement (km2)"="nsd")),
         selectInput(inputId =ns("prop"),
                     label = "Select which daily property to plot",
                     choices = c("number of positions per day" = "n_day", "displacement per day (km)" = "displ_day", "average daily distance to selected position (km)" = "avgdaily_dist2posi")),
@@ -185,27 +185,17 @@ shinyModule <- function(input, output, session, data, time_now=NULL, posi_lon=NU
     dataObj()[timestamps(dataObj())>input$start_time & timestamps(dataObj())<time_now & trackId(dataObj())==selID()]
   }) #here possible to get no data!
   
-  # define attr input list from selected ID
-  observeEvent(input$C, {
-      choices <- c("net square displacement"="nsd",names(data_sel_id()@data[,!sapply(data_sel_id()@data, function(x) all(is.na(x)))] %>% select_if(is.numeric)))
-      #if (is.null(input$C)) # would be good to keep selection if change ID, not yet solved
-      #  {
-        updatePickerInput(
-        session,
-        inputId="attr",
-        choices= choices
-      )#}
-  })
+  updatePickerInput(
+    session,
+    inputId="attr",
+    choices=c("net square displacement (km2)"="nsd",names(data@data[,!sapply(data@data, function(x) all(is.na(x)))] %>% select_if(is.numeric)))
+  )
   
-  observeEvent(input$C, {
-    choices <- c("net square displacement"="nsd",names(data_sel_id()@data[,!sapply(data_sel_id()@data, function(x) all(is.na(x)))] %>% select_if(is.numeric)))
-    updatePickerInput(
-      session,
-      inputId="attr2",
-      choices= choices
-    )
-  })
-
+  updatePickerInput(
+    session,
+    inputId="attr2",
+    choices=c("net square displacement (km2)"="nsd",names(data@data[,!sapply(data@data, function(x) all(is.na(x)))] %>% select_if(is.numeric)))
+  )
   
   timeObj <- reactive({
     timestamps(data_sel_id())
