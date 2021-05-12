@@ -22,7 +22,7 @@ if(file.exists("configuration.json")) {
 #    args[["password"]] = "any-password"
 
 # Add your arguments of your r function here
-args[["time_now"]] = "2020-12-01 12:00:00" #"2014-02-15 12:00:00"
+args[["time_now"]] = "2020-12-01T12:00:00.000Z" #"2014-02-15 12:00:00"
 args[["posi_lon"]] = NULL
 args[["posi_lat"]] = NULL
 args[["mig7d_dist"]] = 100000

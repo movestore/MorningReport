@@ -19,7 +19,7 @@ Sys.setenv(tz="GMT")
 
 shinyModuleUserInterface <- function(id, label, time_now=NULL, posi_lon=NULL, posi_lat=NULL, mig7d_dist, dead7d_dist) {
   ns <- NS(id)
-  if (is.null(time_now)) time_now <- Sys.time() else time_now <- as.POSIXct(time_now)
+  if (is.null(time_now)) time_now <- Sys.time() else time_now <- as.POSIXct(time_now,format="%Y-%m-%dT%H:%M:%OSZ",tz="GMT")
   
   tagList(
     titlePanel("Morning Report"),
