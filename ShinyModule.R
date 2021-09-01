@@ -268,8 +268,8 @@ if (input$attr=="nsd") plot(timeObj(),nsd(),type="b",xlim=c(min(timeObj(),na.rm=
       addProviderTiles("Esri.WorldTopoMap",group = "TopoMap") %>%
       addProviderTiles("Esri.WorldImagery", group = "Aerial") %>%
       addPolylines(data =  coordinates(data_sel_id()), color ="cyan", group = "lines") %>%
-      addCircles(data = data_sel_id(), fillOpacity = 0.3, opacity = 0.5, color="blue", group = "points") %>%
-      addCircles(data = tail(coordinates(data_sel_id()),n=3), fillOpacity = 0.3, opacity = 0.5, color="red", group = "last positions") %>%
+      addCircleMarkers(data = data_sel_id(), fillOpacity = 0.3, opacity = 0.5, color="blue",radius=1, group = "points") %>%
+      addCircleMarkers(data = tail(coordinates(data_sel_id()),n=3), fillOpacity = 0.3, opacity = 0.5, color="red", radius=1, group = "last positions") %>%
       addLegend(position= "topright", colors=c("cyan","blue","red"), 
                 labels=c("lines","points","last positions") ,opacity = 0.7, title = paste("track",unique(trackId(data_sel_id())))) %>%
       addScaleBar(position="bottomleft", 
