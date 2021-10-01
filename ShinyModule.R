@@ -11,7 +11,7 @@ library('leaflet')
 library('sf')
 
 #setwd("/root/app/")
-Sys.setenv(tz="GMT")
+Sys.setenv(tz="UTC")
 
 #names(data@data[,!sapply(data@data,function(x) all(is.na(x)))] %>% select_if(is.numeric))
 #names(data@data[,!sapply(data@data,function(x) all(is.na(x)))] %>% select_if(is.numeric))
@@ -19,7 +19,7 @@ Sys.setenv(tz="GMT")
 
 shinyModuleUserInterface <- function(id, label, time_now=NULL, posi_lon=NULL, posi_lat=NULL, mig7d_dist, dead7d_dist) {
   ns <- NS(id)
-  if (is.null(time_now)) time_now <- Sys.time() else time_now <- as.POSIXct(time_now,format="%Y-%m-%dT%H:%M:%OSZ",tz="GMT")
+  if (is.null(time_now)) time_now <- Sys.time() else time_now <- as.POSIXct(time_now,format="%Y-%m-%dT%H:%M:%OSZ",tz="UTC")
   
   tagList(
     titlePanel("Morning Report"),
