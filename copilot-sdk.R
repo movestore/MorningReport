@@ -2,7 +2,7 @@ library(jsonlite)
 source("logger.R")
 source("ShinyModule.R")
 
-inputFileName = "AmRobinICARUS_inputMorningReport_20210210.rds"
+inputFileName = "App-Output Workflow_Instance_001__Movebank__2022-01-10_08-46-53.rds"
 outputFileName = "output.rds"
 
 if(file.exists("configuration.json")) {
@@ -22,7 +22,7 @@ if(file.exists("configuration.json")) {
 #    args[["password"]] = "any-password"
 
 # Add your arguments of your r function here
-args[["time_now"]] = "2020-12-01T12:00:00.000Z" #"2014-02-15 12:00:00"
+args[["time_now"]] = NULL # "2020-12-01T12:00:00.000Z" #"2014-02-15 12:00:00"
 args[["posi_lon"]] = NULL
 args[["posi_lat"]] = NULL
 args[["mig7d_dist"]] = 100000

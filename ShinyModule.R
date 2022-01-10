@@ -3,7 +3,7 @@ library('shiny')
 library('shinyWidgets')
 library('foreach')
 library('maps')
-library('lutz')
+#library('lutz')
 library('geosphere')
 library('DT')
 library('dplyr')
@@ -29,7 +29,7 @@ shinyModuleUserInterface <- function(id, label, time_now=NULL, posi_lon=NULL, po
 
         selectInput(inputId = ns("sort_table"),
                     label = "Select property by which to sort the overview table",
-                    choices = c("animal name" = "ids", "tag ID" = "tags", "timestamp of first deployed location" = "time0", "timestamp of last deployed location"= "timeE", "local timestamp of last deployed location" = "timeE_local", "number of locations during last 24 hours" = "posis24h", "number of locations during last 7 days" = "posis7d", "displacement during last 24 hours (km)" = "displ24h", "displacement during last 7 days (km)" = "displ7d")),
+                    choices = c("animal name" = "ids", "tag ID" = "tags", "timestamp of first deployed location" = "time0", "timestamp of last deployed location"= "timeE", "number of locations during last 24 hours" = "posis24h", "number of locations during last 7 days" = "posis7d", "displacement during last 24 hours (km)" = "displ24h", "displacement during last 7 days (km)" = "displ7d")), #, "local timestamp of last deployed location" = "timeE_local"
         radioButtons(inputId = ns("sort_direc"),
                      label = "Choose how to sort the table",
                      choices = c("ascending","descending")),
@@ -107,13 +107,13 @@ shinyModule <- function(input, output, session, data, time_now=NULL, posi_lon=NU
     timeE <- foreach(datai = data_spl, .combine=c) %do% {
       as.character(max(timestamps(datai)))
     }
-    timeE_local <- foreach(datai = data_spl, .combine=c) %do% {
-      timeEi <- max(timestamps(datai))
-      coo <- coordinates(datai[timestamps(datai)==timeEi][1,])
-      timeEi_tz <- lutz::tz_lookup_coords(coo[,2],coo[,1], method="accurate")
-      timeEi_offset <- lutz::tz_offset(as.Date(timeEi),timeEi_tz)
-      as.character(as.POSIXct(timeEi)+(timeEi_offset$utc_offset_h*3600))
-    }
+    #timeE_local <- foreach(datai = data_spl, .combine=c) %do% {
+    #  timeEi <- max(timestamps(datai))
+    #  coo <- coordinates(datai[timestamps(datai)==timeEi][1,])
+    #  timeEi_tz <- lutz::tz_lookup_coords(coo[,2],coo[,1], method="accurate")
+    #  timeEi_offset <- lutz::tz_offset(as.Date(timeEi),timeEi_tz)
+    #  as.character(as.POSIXct(timeEi)+(timeEi_offset$utc_offset_h*3600))
+    #}
     
     event <- foreach(datai = data_spl, .combine=c) %do% {
       ix <- which(timestamps(datai) <= time_now & timestamps(datai) >= time_now-(7*24*60*60))
@@ -149,7 +149,7 @@ shinyModule <- function(input, output, session, data, time_now=NULL, posi_lon=NU
       if (length(ix)>0) paste(round(sum(distance(datai[ix,]))/1000,digits=3),"km") else NA
     }
     
-    overview <- data.frame(ids,tags,time0,timeE,timeE_local,posis24h,posis7d,displ24h,displ7d,event)
+    overview <- data.frame(ids,tags,time0,timeE,posis24h,posis7d,displ24h,displ7d,event) #timeE_local,
     N <- length(overview[1,])
     for (i in seq_len(nrow(overview)))
     {
@@ -166,13 +166,13 @@ shinyModule <- function(input, output, session, data, time_now=NULL, posi_lon=NU
 
   
   o <- reactive({
-    if (input$sort_table %in% c("time0","timeE","timeE_local")) sort_tab <- as.POSIXct(overviewObj()[,input$sort_table]) else sort_tab <- overviewObj()[,input$sort_table]
+    if (input$sort_table %in% c("time0","timeE")) sort_tab <- as.POSIXct(overviewObj()[,input$sort_table]) else sort_tab <- overviewObj()[,input$sort_table] #,"timeE_local"
     if (input$sort_direc=="descending") order(sort_tab, decreasing = TRUE) else if(input$sort_direc=="ascending") order(sort_tab, decreasing = FALSE) else seq(along=sort_tab)
   })
   
   overviewObj_named <- reactive({
     overview_named <- overviewObj()
-    names(overview_named) <- c("Show Plots and Map","Animal","Tag","First timestamp","Last timestamp","Last timestamp local tz","N positions last 24h","N positions last 7d","Moved distance last 24h","Moved distance last 7d","Event last 7d")
+    names(overview_named) <- c("Show Plots and Map","Animal","Tag","First timestamp UTC","Last timestamp UTC","N positions last 24h","N positions last 7d","Moved distance last 24h","Moved distance last 7d","Event last 7d") #,"Last timestamp local tz"
     overview_named
   })
   
