@@ -96,24 +96,31 @@ shinyModule <- function(input, output, session, data, time_now=NULL, posi_lon=NU
 
   # table parameters
   overviewObj <- reactive({
+    
+    names(data) <- make.names(names(data),allow_=FALSE)
+
     data_spl <- move::split(data)
     ids <- namesIndiv(data)
-    tags <- foreach(datai = data_spl, .combine=c) %do% {
-      datai@data$tag_local_identifier[1]
-    }
+    if (any(names(data@data)=="tags.local.identifier"))
+    {
+      tags <- foreach(datai = data_spl, .combine=c) %do% {
+        datai@data$tag.local.identifier[1]
+      }
+    } else tags <- rep(NA,length(ids))
+    
     time0 <- foreach(datai = data_spl, .combine=c) %do% {
       as.character(min(timestamps(datai)))
     }
     timeE <- foreach(datai = data_spl, .combine=c) %do% {
       as.character(max(timestamps(datai)))
     }
-    #timeE_local <- foreach(datai = data_spl, .combine=c) %do% {
-    #  timeEi <- max(timestamps(datai))
-    #  coo <- coordinates(datai[timestamps(datai)==timeEi][1,])
-    #  timeEi_tz <- lutz::tz_lookup_coords(coo[,2],coo[,1], method="accurate")
-    #  timeEi_offset <- lutz::tz_offset(as.Date(timeEi),timeEi_tz)
-    #  as.character(as.POSIXct(timeEi)+(timeEi_offset$utc_offset_h*3600))
-    #}
+    timeE_local <- foreach(datai = data_spl, .combine=c) %do% {
+      timeEi <- max(timestamps(datai))
+      coo <- coordinates(datai[timestamps(datai)==timeEi][1,])
+      timeEi_tz <- lutz::tz_lookup_coords(coo[,2],coo[,1], method="accurate")
+      timeEi_offset <- lutz::tz_offset(as.Date(timeEi),timeEi_tz)
+      as.character(as.POSIXct(timeEi)+(timeEi_offset$utc_offset_h*3600))
+    }
     
     event <- foreach(datai = data_spl, .combine=c) %do% {
       ix <- which(timestamps(datai) <= time_now & timestamps(datai) >= time_now-(7*24*60*60))
@@ -149,7 +156,7 @@ shinyModule <- function(input, output, session, data, time_now=NULL, posi_lon=NU
       if (length(ix)>0) paste(round(sum(distance(datai[ix,]))/1000,digits=3),"km") else NA
     }
     
-    overview <- data.frame(ids,tags,time0,timeE,posis24h,posis7d,displ24h,displ7d,event) #timeE_local,
+    overview <- data.frame(ids,tags,time0,timeE,timeE_local,posis24h,posis7d,displ24h,displ7d,event) #timeE_local,
     N <- length(overview[1,])
     for (i in seq_len(nrow(overview)))
     {
@@ -172,7 +179,7 @@ shinyModule <- function(input, output, session, data, time_now=NULL, posi_lon=NU
   
   overviewObj_named <- reactive({
     overview_named <- overviewObj()
-    names(overview_named) <- c("Show Plots and Map","Animal","Tag","First timestamp UTC","Last timestamp UTC","N positions last 24h","N positions last 7d","Moved distance last 24h","Moved distance last 7d","Event last 7d") #,"Last timestamp local tz"
+    names(overview_named) <- c("Show Plots and Map","Animal","Tag","First timestamp UTC","Last timestamp UTC","Last timestamp local tz","N positions last 24h","N positions last 7d","Moved distance last 24h","Moved distance last 7d","Event last 7d") #,"Last timestamp local tz"
     overview_named
   })
   
