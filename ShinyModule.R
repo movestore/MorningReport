@@ -85,7 +85,7 @@ shinyModuleConfiguration <- function(id, input) {
   print(ns('dead7d_dist'))
   configuration["dead7d_dist"] <- input[[ns('dead7d_dist')]]
   
-  data.frame(configuration) #try if this removes the error in the UI, even if it is not completely generic
+  configuration
 }
 
 
