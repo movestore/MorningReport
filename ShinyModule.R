@@ -9,96 +9,154 @@ library('DT')
 library('dplyr')
 library('leaflet')
 library('sf')
+library("shinyBS")
+library("shinyTime")
 
 #setwd("/root/app/")
 Sys.setenv(tz="UTC")
 
+## map to select coords from 
+# is it ok to jut select the coordinates on a map, or should it be possible to also enter them manually?
+# show last positions? or first, or both?
+# how many decimals should be shown?
+
+## Migration buffer in km?
+
+## improve error msg ob tab2
+# - when no buffer provided
+# - if tag has no data "now"
+
+## selected lat/long does not get saved in bookmarks!!
+
+
 #names(data@data[,!sapply(data@data,function(x) all(is.na(x)))] %>% select_if(is.numeric))
 #names(data@data[,!sapply(data@data,function(x) all(is.na(x)))] %>% select_if(is.numeric))
 
 
-shinyModuleUserInterface <- function(id, label, time_now=NULL, posi_lon=NULL, posi_lat=NULL, mig7d_dist, dead7d_dist) {
+shinyModuleUserInterface <- function(id, label){
   ns <- NS(id)
-  if (is.null(time_now)) time_now <- Sys.time() else time_now <- as.POSIXct(time_now,format="%Y-%m-%dT%H:%M:%OSZ",tz="UTC")
-  
-  tagList(
-    titlePanel("Morning Report"),
-    div(id=ns("C"),class='shiny-input-radiogroup',DT::dataTableOutput(ns("foo"))),
-    sidebarLayout(
-      sidebarPanel(
-
-        selectInput(inputId = ns("sort_table"),
-                    label = "Select property by which to sort the overview table",
-                    choices = c("animal name" = "ids", "tag ID" = "tags", "timestamp of first deployed location" = "time0", "timestamp of last deployed location"= "timeE", "number of locations during last 24 hours" = "posis24h", "number of locations during last 7 days" = "posis7d", "displacement during last 24 hours (km)" = "displ24h", "displacement during last 7 days (km)" = "displ7d")), #, "local timestamp of last deployed location" = "timeE_local"
-        radioButtons(inputId = ns("sort_direc"),
-                     label = "Choose how to sort the table",
-                     choices = c("ascending","descending")),
-        sliderInput(ns("start_time"),
-                    paste0("Choose start time for map and plots (reference: ",time_now,")"),
-                    min = as.POSIXct(time_now) - as.difftime(20,units="weeks"),
-                    max = as.POSIXct(time_now),
-                    value = as.POSIXct(time_now) - as.difftime(20,units="weeks"),
-                    timeFormat = "%Y-%m-%d %H:%M:%S", ticks = F, animate = T),
-
-        pickerInput(inputId =ns("attr"),
-                    label = "Select which data attribute to plot",
-                    choices = c("net square displacement (km2)"="nsd")),
-        pickerInput(inputId =ns("attr2"),
-                    label = "Select which second data attribute to plot",
-                    choices = c("net square displacement (km2)"="nsd")),
-        selectInput(inputId =ns("prop"),
-                    label = "Select which daily property to plot",
-                    choices = c("number of positions per day" = "n_day", "displacement per day (km)" = "displ_day", "average daily distance to selected position (km)" = "avgdaily_dist2posi")),
-         width=2),
-       mainPanel(
-         #leafletOutput(ns("leafmap"),height="500px"),
-        fluidRow(
-          column(width=6,
-                plotOutput(ns("attr_time"),height="220px"),
-                 plotOutput(ns("attr2_time"),height="220px"),
-                 plotOutput(ns("prop_time"),height="220px")
-          ),
-          column(width=6, leafletOutput(ns("leafmap"),height="500px"))
-        )
-      )
-    )
+  navbarPage("Morning Report",
+             # tabsetPanel(
+             tabPanel("Settings", 
+                      fluidRow(
+                        h5("1. Define your reference time, i.e. the time from which you want to look back at your data. If your tags are still functioning, this is typically ‘NOW’. If you don’t change the time, ‘NOW’ will be used by default."),
+                        column(3,dateInput(ns("date"),"Date:", value = Sys.Date())),
+                        column(3,timeInput(ns("time"), "Time (24h format):", value = Sys.time(),seconds = FALSE))
+                      ),
+                      h5("2. Define the radius (in m) an animal must move past to qualify as migration behaviour. E.g. 100000m (100 km)"),
+                      numericInput(ns("mig7d_dist"),"Migration buffer in m (last 7 days)", min=0, value=NA),
+                      h5("3. Define the radius (in m) within which an animal must remain to indicate a likely mortality. E.g. 100 m"),
+                      numericInput(ns("dead7d_dist"),"Mortality buffer in m (last 7 days)", min=0, value=NA),
+                      
+                      h5("4. Select your reference position, i.e. if you are in the field use your current location to find out if any tagged animals are in the surroundings. The distance to this location will be calculated for all of your data points. If no location is provided, the first position of each track is used."),
+                      # fluidRow(
+                      #   column(3,numericInput(ns("posi_lat"),"Latitude of reference position", value = NA)),
+                      #   column(3,numericInput(ns("posi_lon"), "Longitude of reference position", value = NA))
+                      # ),
+                      leafletOutput(ns("testmap"))
+             ),
+             
+             
+             tabPanel("Visualization",
+                      div(id=ns("C"),class='shiny-input-radiogroup',DT::dataTableOutput(ns("foo"))),
+                      sidebarLayout(
+                        sidebarPanel(
+                          
+                          selectInput(inputId = ns("sort_table"),
+                                      label = "Select property by which to sort the overview table",
+                                      choices = c("animal name" = "ids", "tag ID" = "tags", "timestamp of first deployed location" = "time0", "timestamp of last deployed location"= "timeE", "number of locations during last 24 hours" = "posis24h", "number of locations during last 7 days" = "posis7d", "displacement during last 24 hours (km)" = "displ24h", "displacement during last 7 days (km)" = "displ7d")), #, "local timestamp of last deployed location" = "timeE_local"
+                          radioButtons(inputId = ns("sort_direc"),
+                                       label = "Choose how to sort the table",
+                                       choices = c("ascending","descending")),
+                          uiOutput(ns("start_timeUI")),
+                          
+                          pickerInput(inputId =ns("attr"),
+                                      label = "Select which data attribute to plot",
+                                      choices = c("net square displacement (km2)"="nsd")),
+                          pickerInput(inputId =ns("attr2"),
+                                      label = "Select which second data attribute to plot",
+                                      choices = c("net square displacement (km2)"="nsd")),
+                          selectInput(inputId =ns("prop"),
+                                      label = "Select which daily property to plot",
+                                      choices = c("number of positions per day" = "n_day", "displacement per day (km)" = "displ_day", "average daily distance to selected position (km)" = "avgdaily_dist2posi")),
+                          width=2),
+                        mainPanel(
+                          #leafletOutput(ns("leafmap"),height="500px"),
+                          fluidRow(
+                            column(width=6,
+                                   plotOutput(ns("attr_time"),height="220px"),
+                                   plotOutput(ns("attr2_time"),height="220px"),
+                                   plotOutput(ns("prop_time"),height="220px")
+                            ),
+                            column(width=6, leafletOutput(ns("leafmap"),height="500px"))
+                          )
+                        )
+                      )
+             )
   )
 }
 
 
-shinyModuleConfiguration <- function(id, input) {
-  ns <- NS(id)
-  configuration <- list()
-
-  print(ns('time_now'))
-  configuration["time_now"] <- input[[ns('time_now')]]
-
-  print(ns('posi_lon'))
-  configuration["posi_lon"] <- input[[ns('posi_lon')]]
-
-  print(ns('posi_lat'))
-  configuration["posi_lat"] <- input[[ns('posi_lat')]]
-
-  print(ns('mig7d_dist'))
-  configuration["mig7d_dist"] <- input[[ns('mig7d_dist')]]
-
-  print(ns('dead7d_dist'))
-  configuration["dead7d_dist"] <- input[[ns('dead7d_dist')]]
-  
-  configuration
-}
-
-
-shinyModule <- function(input, output, session, data, time_now=NULL, posi_lon=NULL, posi_lat=NULL, mig7d_dist, dead7d_dist) {
+shinyModule <- function(input, output, session, data){
+  ns <- session$ns
   dataObj <- reactive({ data })
   current <- reactiveVal(data)
-  if (is.null(time_now)) time_now <- Sys.time() else time_now <- as.POSIXct(time_now)
-
+  
+  ## map to choose coords from
+  output$testmap <- renderLeaflet({
+    lasLocs <- moveStack(lapply(split(data), function(ind){
+      ind[n.locs(ind)]
+    }),forceTz="UTC")
+    
+    bounds <- as.vector(bbox(extent((lasLocs))))
+    outl <- leaflet() %>%
+      fitBounds(bounds[1], bounds[2], bounds[3], bounds[4]) %>%
+      addTiles() %>%
+      addProviderTiles("Esri.WorldTopoMap",group = "TopoMap") %>%
+      addProviderTiles("Esri.WorldImagery", group = "Aerial") %>%
+      addCircleMarkers(data = lasLocs, fillOpacity = 0.7, opacity = 0.7, color="red", radius=5, label=namesIndiv(lasLocs),labelOptions = labelOptions(noHide = T)) %>%
+      addLayersControl(baseGroups = c("StreetMap", "Aerial")) %>%
+      addLegend(position= "topright", colors=c("red","blue"), 
+                labels=c("last position","selected location") ,opacity = 0.7) 
+    outl
+  })
+  click <- reactiveVal()
+  observeEvent(input$testmap_click, {
+    click(input$testmap_click)
+    leafletProxy('testmap')%>% removeMarker("mypos")%>%addMarkers(lng = click()$lng, lat = click()$lat, layerId="mypos",label=paste0("Lat: ", round(click()$lat,4)," Lon: ",round(click()$lng,4)),labelOptions = labelOptions(noHide = T))
+  })
+  ##
+  time_now <- reactiveVal()
+  output$start_timeUI <- renderUI({
+    time_now(as.POSIXct(paste0(input$date," ",strftime(input$time, format="%H:%M:%S"))))
+    sliderInput(ns("start_time"),
+                paste0("Choose start time for map and plots (reference: ",input$date," ", strftime(input$time, format="%H:%M:%S"),")"),
+                min = as.POSIXct(paste0(input$date," ",strftime(input$time, format="%H:%M:%S"))) - as.difftime(20,units="weeks"),
+                max = time_now(),
+                value = as.POSIXct(paste0(input$date," ",strftime(input$time, format="%H:%M:%S"))) - as.difftime(20,units="weeks"),
+                timeFormat = "%Y-%m-%d %H:%M:%S", ticks = F, animate = T)
+  })
+  
+  
+  posi_lon <- reactiveVal(value=NA)
+  posi_lat <- reactiveVal(value=NA)
+  observeEvent(input$testmap_click,{
+    posi_lon(click()$lng)
+    posi_lat(click()$lat)
+  })
+  
+  
   # table parameters
   overviewObj <- reactive({
+    # validate(
+    #   need(!is.na(input$mig7d_dist), "Please define the migration buffer in the settings")
+    # )
+    # validate(
+    #   need(!is.na(input$dead7d_dist),  "Please define the mortality buffer in the settings")
+    #   )
     
     names(data) <- make.names(names(data),allow_=FALSE)
-
+    
     data_spl <- move::split(data)
     ids <- namesIndiv(data)
     if (any(names(data@data)=="tags.local.identifier"))
@@ -123,16 +181,16 @@ shinyModule <- function(input, output, session, data, time_now=NULL, posi_lon=NU
     }
     
     event <- foreach(datai = data_spl, .combine=c) %do% {
-      ix <- which(timestamps(datai) <= time_now & timestamps(datai) >= time_now-(7*24*60*60))
-      if (length(ix)>0) 
+      ix <- which(timestamps(datai) <= time_now() & timestamps(datai) >= time_now()-(7*24*60*60))
+      if (length(ix)>0)
       {
         datai7d <- datai[ix,]
         meanlon <- mean(coordinates(datai7d)[,1])
         meanlat <- mean(coordinates(datai7d)[,2])
-        if (any(distVincentyEllipsoid(coordinates(datai7d),c(meanlon,meanlat))>mig7d_dist))
+        if (any(distVincentyEllipsoid(coordinates(datai7d),c(meanlon,meanlat))>input$mig7d_dist))
         {
           "migration"
-        } else if (all(distVincentyEllipsoid(coordinates(datai7d),c(meanlon,meanlat))<dead7d_dist))
+        } else if (all(distVincentyEllipsoid(coordinates(datai7d),c(meanlon,meanlat))<input$dead7d_dist ))
         {
           "dead"
         } else "-"
@@ -140,19 +198,19 @@ shinyModule <- function(input, output, session, data, time_now=NULL, posi_lon=NU
     }
     
     posis24h <- foreach(datai = data_spl, .combine=c) %do% {
-      ix <- which(timestamps(datai) <= time_now & timestamps(datai) >= time_now-(24*60*60))
+      ix <- which(timestamps(datai) <= time_now() & timestamps(datai) >= time_now()-(24*60*60))
       length(ix)
     }
     posis7d <- foreach(datai = data_spl, .combine=c) %do% {
-      ix <- which(timestamps(datai) <= time_now & timestamps(datai) >= time_now-(7*24*60*60))
+      ix <- which(timestamps(datai) <= time_now() & timestamps(datai) >= time_now()-(7*24*60*60))
       length(ix)
     }
     displ24h <- foreach(datai = data_spl, .combine=c) %do% {
-      ix <- which(timestamps(datai) <= time_now & timestamps(datai) >= time_now-(24*60*60))
+      ix <- which(timestamps(datai) <= time_now() & timestamps(datai) >= time_now()-(24*60*60))
       if (length(ix)>0) paste(round(sum(distance(datai[ix,]))/1000,digits=3),"km") else NA
     }
     displ7d <- foreach(datai = data_spl, .combine=c) %do% {
-      ix <- which(timestamps(datai) <= time_now & timestamps(datai) >= time_now-(7*24*60*60))
+      ix <- which(timestamps(datai) <= time_now() & timestamps(datai) >= time_now()-(7*24*60*60))
       if (length(ix)>0) paste(round(sum(distance(datai[ix,]))/1000,digits=3),"km") else NA
     }
     
@@ -169,8 +227,8 @@ shinyModule <- function(input, output, session, data, time_now=NULL, posi_lon=NU
     }
     overview[,c(N+1,1:N)]
   })
-
-
+  
+  
   
   o <- reactive({
     if (input$sort_table %in% c("time0","timeE")) sort_tab <- as.POSIXct(overviewObj()[,input$sort_table]) else sort_tab <- overviewObj()[,input$sort_table] #,"timeE_local"
@@ -189,7 +247,7 @@ shinyModule <- function(input, output, session, data, time_now=NULL, posi_lon=NU
   })
   
   data_sel_id <- reactive({
-    dataObj()[timestamps(dataObj())>input$start_time & timestamps(dataObj())<time_now & trackId(dataObj())==selID()]
+    dataObj()[timestamps(dataObj())>input$start_time & timestamps(dataObj())<time_now() & trackId(dataObj())==selID()]
   }) #here possible to get no data!
   
   updatePickerInput(
@@ -207,24 +265,24 @@ shinyModule <- function(input, output, session, data, time_now=NULL, posi_lon=NU
   timeObj <- reactive({
     timestamps(data_sel_id())
   })
-
+  
   attrObj <- reactive({
     data_sel_id()@data[,input$attr]
   })
-
+  
   attr2Obj <- reactive({
     data_sel_id()@data[,input$attr2]
   })
-
+  
   nsd <- reactive({
     (distVincentyEllipsoid(coordinates(data_sel_id()),coordinates(data_sel_id())[1,])/1000)^2
   })
   nsd2 <- reactive({nsd()})
-
+  
   daysObj <- reactive({
     unique(as.Date(timestamps(data_sel_id())))
   })
-
+  
   n_day <- reactive({
     foreach(dayi = daysObj(), .combine=c) %do% {
       length(which(as.Date(timestamps(data_sel_id()))==dayi))
@@ -235,60 +293,60 @@ shinyModule <- function(input, output, session, data, time_now=NULL, posi_lon=NU
       if (!(1 %in% ix)) ix <- c(min(ix)-1,ix) #add last position before this day
       if (length(ix)>1) sum(distVincentyEllipsoid(coordinates(data_sel_id()[ix,])),na.rm=TRUE)/1000 else 0
     }})
-
-  if (is.null(posi_lon)) lonZ <- reactive({coordinates(data_sel_id())[1,1]}) else lonZ <- reactive({posi_lon})
-  if (is.null(posi_lat)) latZ <- reactive({coordinates(data_sel_id())[1,2]}) else latZ <- reactive({posi_lat})
-
+  
   avgdaily_dist2posi <- reactive({
+    if (is.na(posi_lon())){lonZ <- coordinates(data_sel_id())[1,1]} else {lonZ <- posi_lon()}
+    if (is.na(posi_lat())){latZ <- coordinates(data_sel_id())[1,2]} else {latZ <- posi_lat()}
+    
     foreach(dayi = daysObj(), .combine=c) %do% {
       ix <- which(as.Date(timestamps(data_sel_id()))==dayi)
-      mean(distVincentyEllipsoid(coordinates(data_sel_id()[ix,]),c(lonZ(),latZ()))/1000,rm.na=TRUE)
+      mean(distVincentyEllipsoid(coordinates(data_sel_id()[ix,]),c(lonZ,latZ))/1000,rm.na=TRUE)
     }})
   
-##### table output
+  ##### table output
   output$foo <- DT::renderDataTable(
     overviewObj_named()[o(),],escape = FALSE, selection = 'none', server = FALSE,
     options = list(dom = 't', paging = FALSE, ordering = FALSE, rownames=FALSE, scrollY=250, scrollCollapse = TRUE)
   )
-
-##### plots
-## HERE: TRY AND ADAPT ERROR MESSAGES IF THERE ARE NO DATA SELECTED
-output$attr_time <- renderPlot({
-if (input$attr=="nsd") plot(timeObj(),nsd(),type="b",xlim=c(min(timeObj(),na.rm=TRUE),max(timeObj(),na.rm=TRUE)),ylim=c(min(nsd(),na.rm=TRUE),max(nsd(),na.rm=TRUE)),xlab="time",ylab="nsd (km2)",col=2,lwd=2) else plot(timeObj(),attrObj(),type="b",xlim=c(min(timeObj(),na.rm=TRUE),max(timeObj(),na.rm=TRUE)),ylim=c(min(attrObj(),na.rm=TRUE),max(attrObj(),na.rm=TRUE)),xlab="time",ylab=input$attr,col=2,lwd=2)
+  
+  ##### plots
+  ## HERE: TRY AND ADAPT ERROR MESSAGES IF THERE ARE NO DATA SELECTED
+  output$attr_time <- renderPlot({
+    if (input$attr=="nsd") plot(timeObj(),nsd(),type="b",xlim=c(min(timeObj(),na.rm=TRUE),max(timeObj(),na.rm=TRUE)),ylim=c(min(nsd(),na.rm=TRUE),max(nsd(),na.rm=TRUE)),xlab="time",ylab="nsd (km2)",col=2,lwd=2) else plot(timeObj(),attrObj(),type="b",xlim=c(min(timeObj(),na.rm=TRUE),max(timeObj(),na.rm=TRUE)),ylim=c(min(attrObj(),na.rm=TRUE),max(attrObj(),na.rm=TRUE)),xlab="time",ylab=input$attr,col=2,lwd=2)
   })
   
   output$attr2_time <- renderPlot({
     if (input$attr2=="nsd") plot(timeObj(),nsd(),type="b",xlim=c(min(timeObj(),na.rm=TRUE),max(timeObj(),na.rm=TRUE)),ylim=c(min(nsd(),na.rm=TRUE),max(nsd(),na.rm=TRUE)),xlab="time",ylab="nsd (km2)",col=2,lwd=2) else plot(timeObj(),attr2Obj(),type="b",xlim=c(min(timeObj(),na.rm=TRUE),max(timeObj(),na.rm=TRUE)),ylim=c(min(attr2Obj(),na.rm=TRUE),max(attr2Obj(),na.rm=TRUE)),xlab="time",ylab=input$attr2,col=2,lwd=2)
   })
-
+  
   output$prop_time <- renderPlot({
     if (input$prop=="n_day") plot(daysObj(),n_day(),type="h",xlim=c(min(daysObj(),na.rm=TRUE),max(daysObj(),na.rm=TRUE)),ylim=c(min(n_day(),na.rm=TRUE),max(n_day(),na.rm=TRUE)),xlab="day",ylab="number of positions per day",col=2,lwd=5)
     else if (input$prop=="displ_day") plot(daysObj(),displ_day(),type="h",xlim=c(min(daysObj(),na.rm=TRUE),max(daysObj(),na.rm=TRUE)),ylim=c(min(displ_day(),na.rm=TRUE),max(displ_day(),na.rm=TRUE)),xlab="day",ylab="displacement per day (km)",col=2,lwd=5)
     else if (input$prop=="avgdaily_dist2posi") plot(daysObj(),avgdaily_dist2posi(),type="h",xlim=c(min(daysObj(),na.rm=TRUE),max(daysObj(),na.rm=TRUE)),ylim=c(min(avgdaily_dist2posi(),na.rm=TRUE),max(avgdaily_dist2posi(),na.rm=TRUE)),xlab="day",ylab="average daily distance to selected position (km)",col=2,lwd=5)
   })
- 
+  
   output$leafmap <- renderLeaflet({
     bounds <- as.vector(bbox(extent(data_sel_id())))
-    outl <- leaflet() %>% 
-      fitBounds(bounds[1], bounds[2], bounds[3], bounds[4]) %>% 
+    outl <- leaflet() %>%
+      fitBounds(bounds[1], bounds[2], bounds[3], bounds[4]) %>%
       addTiles() %>%
       addProviderTiles("Esri.WorldTopoMap",group = "TopoMap") %>%
       addProviderTiles("Esri.WorldImagery", group = "Aerial") %>%
       addPolylines(data =  coordinates(data_sel_id()), color ="cyan", group = "lines") %>%
       addCircleMarkers(data = data_sel_id(), fillOpacity = 0.3, opacity = 0.5, color="blue",radius=1, group = "points") %>%
       addCircleMarkers(data = tail(coordinates(data_sel_id()),n=3), fillOpacity = 0.3, opacity = 0.5, color="red", radius=1, group = "last positions") %>%
-      addLegend(position= "topright", colors=c("cyan","blue","red"), 
+      addLegend(position= "topright", colors=c("cyan","blue","red"),
                 labels=c("lines","points","last positions") ,opacity = 0.7, title = paste("track",unique(trackId(data_sel_id())))) %>%
-      addScaleBar(position="bottomleft", 
-                  options=scaleBarOptions(maxWidth = 100, 
+      addScaleBar(position="bottomleft",
+                  options=scaleBarOptions(maxWidth = 100,
                                           metric = TRUE, imperial = F, updateWhenIdle = TRUE)) %>%
       addLayersControl(
         baseGroups = c("StreetMap", "Aerial"),
         overlayGroups = c("lines", "points","last positions"),
         options = layersControlOptions(collapsed = FALSE)
       )
-    outl    
-  }) 
+    outl
+  })
   
   return(reactive({ current() })) 
 }

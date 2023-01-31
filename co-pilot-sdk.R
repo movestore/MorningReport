@@ -7,7 +7,7 @@ dir.create("./data/output/")
 outputFileName = "./data/output/output.rds" 
 
 # this file is the home of your app code and will be bundled into the final app on MoveApps
-source("ShinyModule_test.R")
+source("ShinyModule.R")
 
 # setup your environment
 Sys.setenv(
