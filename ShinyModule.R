@@ -15,22 +15,11 @@ library("shinyTime")
 #setwd("/root/app/")
 Sys.setenv(tz="UTC")
 
-## map to select coords from 
-# is it ok to jut select the coordinates on a map, or should it be possible to also enter them manually?
-# show last positions? or first, or both?
-# how many decimals should be shown?
-
-## Migration buffer in km?
 
 ## improve error msg ob tab2
 # - when no buffer provided
 # - if tag has no data "now"
 
-## selected lat/long does not get saved in bookmarks!!
-
-
-#names(data@data[,!sapply(data@data,function(x) all(is.na(x)))] %>% select_if(is.numeric))
-#names(data@data[,!sapply(data@data,function(x) all(is.na(x)))] %>% select_if(is.numeric))
 
 
 shinyModuleUserInterface <- function(id, label){
@@ -39,21 +28,23 @@ shinyModuleUserInterface <- function(id, label){
              # tabsetPanel(
              tabPanel("Settings", 
                       fluidRow(
-                        h5("1. Define your reference time, i.e. the time from which you want to look back at your data. If your tags are still functioning, this is typically ‘NOW’. If you don’t change the time, ‘NOW’ will be used by default."),
+                        h5("1. Define your reference date and time, i.e. the date and time from which you want to look back at your data. If your tags are still functioning, this is typically ‘NOW’. If you don’t change the date and time, ‘NOW’ will be used by default. Time will be in the timezone of your data (if data come from Movebank this will be UTC)"),
                         column(3,dateInput(ns("date"),"Date:", value = Sys.Date())),
                         column(3,timeInput(ns("time"), "Time (24h format):", value = Sys.time(),seconds = FALSE))
                       ),
-                      h5("2. Define the radius (in m) an animal must move past to qualify as migration behaviour. E.g. 100000m (100 km)"),
-                      numericInput(ns("mig7d_dist"),"Migration buffer in m (last 7 days)", min=0, value=NA),
+                      h5("2. Define the radius (in km) an animal must move past to qualify as migration behaviour. E.g. 100 km"),
+                      numericInput(ns("mig7d_dist"),"Migration buffer in km (last 7 days)", min=0, value=NA),
                       h5("3. Define the radius (in m) within which an animal must remain to indicate a likely mortality. E.g. 100 m"),
                       numericInput(ns("dead7d_dist"),"Mortality buffer in m (last 7 days)", min=0, value=NA),
                       
-                      h5("4. Select your reference position, i.e. if you are in the field use your current location to find out if any tagged animals are in the surroundings. The distance to this location will be calculated for all of your data points. If no location is provided, the first position of each track is used."),
-                      # fluidRow(
-                      #   column(3,numericInput(ns("posi_lat"),"Latitude of reference position", value = NA)),
-                      #   column(3,numericInput(ns("posi_lon"), "Longitude of reference position", value = NA))
-                      # ),
-                      leafletOutput(ns("testmap"))
+                      h5("4. Select your reference position, i.e. if you are in the field use your current location to find out if any tagged animals are in the surroundings. The distance to this location will be calculated for all of your data points. If no location is provided, the last position of each track is used."),
+                      leafletOutput(ns("testmap")),
+                      fluidRow(
+                        column(1,uiOutput(ns("posLat_UI"))),
+                        column(1,uiOutput(ns("posLon_UI"))),
+                        column(1,actionButton(ns("set2Na"),"Reset to last position of track"),style = 'top: 25px;position:relative;')
+                      )
+                      
              ),
              
              
@@ -117,7 +108,7 @@ shinyModule <- function(input, output, session, data){
       addCircleMarkers(data = lasLocs, fillOpacity = 0.7, opacity = 0.7, color="red", radius=5, label=namesIndiv(lasLocs),labelOptions = labelOptions(noHide = T)) %>%
       addLayersControl(baseGroups = c("StreetMap", "Aerial")) %>%
       addLegend(position= "topright", colors=c("red","blue"), 
-                labels=c("last position","selected location") ,opacity = 0.7) 
+                labels=c("last position","selected location") ,opacity = 0.7)  
     outl
   })
   click <- reactiveVal()
@@ -131,13 +122,13 @@ shinyModule <- function(input, output, session, data){
     time_now(as.POSIXct(paste0(input$date," ",strftime(input$time, format="%H:%M:%S"))))
     sliderInput(ns("start_time"),
                 paste0("Choose start time for map and plots (reference: ",input$date," ", strftime(input$time, format="%H:%M:%S"),")"),
-                min = as.POSIXct(paste0(input$date," ",strftime(input$time, format="%H:%M:%S"))) - as.difftime(20,units="weeks"),
+                min = time_now() - as.difftime(20,units="weeks"),
                 max = time_now(),
-                value = as.POSIXct(paste0(input$date," ",strftime(input$time, format="%H:%M:%S"))) - as.difftime(20,units="weeks"),
+                value = time_now() - as.difftime(20,units="weeks"),
                 timeFormat = "%Y-%m-%d %H:%M:%S", ticks = F, animate = T)
   })
   
-  
+## selected position is saved in bookmarks, and cab be deleted if last position wants to be used
   posi_lon <- reactiveVal(value=NA)
   posi_lat <- reactiveVal(value=NA)
   observeEvent(input$testmap_click,{
@@ -145,6 +136,18 @@ shinyModule <- function(input, output, session, data){
     posi_lat(click()$lat)
   })
   
+  output$posLat_UI <- renderUI({
+    numericInput(ns("posLat"), "Lat", value=posi_lat())
+  })
+  output$posLon_UI <- renderUI({
+    numericInput(ns("posLon"), "Lon", value=posi_lon())
+  })
+  
+  observeEvent(input$set2Na,{
+    updateNumericInput(session,"posLat",  value=NA)
+    updateNumericInput(session,"posLon",  value=NA)
+  })
+  ###
   
   # table parameters
   overviewObj <- reactive({
@@ -187,7 +190,7 @@ shinyModule <- function(input, output, session, data){
         datai7d <- datai[ix,]
         meanlon <- mean(coordinates(datai7d)[,1])
         meanlat <- mean(coordinates(datai7d)[,2])
-        if (any(distVincentyEllipsoid(coordinates(datai7d),c(meanlon,meanlat))>input$mig7d_dist))
+        if (any(distVincentyEllipsoid(coordinates(datai7d),c(meanlon,meanlat))>(input$mig7d_dist*1000)))
         {
           "migration"
         } else if (all(distVincentyEllipsoid(coordinates(datai7d),c(meanlon,meanlat))<input$dead7d_dist ))
@@ -295,8 +298,8 @@ shinyModule <- function(input, output, session, data){
     }})
   
   avgdaily_dist2posi <- reactive({
-    if (is.na(posi_lon())){lonZ <- coordinates(data_sel_id())[1,1]} else {lonZ <- posi_lon()}
-    if (is.na(posi_lat())){latZ <- coordinates(data_sel_id())[1,2]} else {latZ <- posi_lat()}
+    if (is.na(input$posLon)){lonZ <- coordinates(data_sel_id())[1,1]} else {lonZ <- input$posLon}
+    if (is.na(input$posLat)){latZ <- coordinates(data_sel_id())[1,2]} else {latZ <- input$posLat}
     
     foreach(dayi = daysObj(), .combine=c) %do% {
       ix <- which(as.Date(timestamps(data_sel_id()))==dayi)
