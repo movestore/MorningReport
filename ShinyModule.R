@@ -9,50 +9,45 @@ library('DT')
 library('dplyr')
 library('leaflet')
 library('sf')
-library("shinyBS")
 library("shinyTime")
+library("lubridate")
 
 #setwd("/root/app/")
 Sys.setenv(tz="UTC")
 
 
 ## improve error msg ob tab2
-# - when no buffer provided
-# - if tag has no data "now"
+# - if tag has no data "now". work in progress
 
 
 
 shinyModuleUserInterface <- function(id, label){
   ns <- NS(id)
   navbarPage("Morning Report",
-             # tabsetPanel(
              tabPanel("Settings", 
                       fluidRow(
-                        h5("1. Define your reference date and time, i.e. the date and time from which you want to look back at your data. If your tags are still functioning, this is typically ‘NOW’. If you don’t change the date and time, ‘NOW’ will be used by default. Time will be in the timezone of your data (if data come from Movebank this will be UTC)"),
-                        column(3,dateInput(ns("date"),"Date:", value = Sys.Date())),
-                        column(3,timeInput(ns("time"), "Time (24h format):", value = Sys.time(),seconds = FALSE))
+                        h5("1. Define your reference date and time, i.e. the date and time from which you want to look back at your data. If your tags are still functioning, this is typically ‘NOW’ in UTC. If you don’t change the date and time, ‘NOW’ will be used by default"),
+                        column(3,dateInput(ns("date"),"Date:", value = as_date(now("UTC")))),
+                        column(3,timeInput(ns("time"), "Time (24h format):", value = strftime(now("UTC"), format="%H:%M:%S", tz="UTC"), seconds = FALSE))
                       ),
-                      h5("2. Define the radius (in km) an animal must move past to qualify as migration behaviour. E.g. 100 km"),
-                      numericInput(ns("mig7d_dist"),"Migration buffer in km (last 7 days)", min=0, value=NA),
-                      h5("3. Define the radius (in m) within which an animal must remain to indicate a likely mortality. E.g. 100 m"),
-                      numericInput(ns("dead7d_dist"),"Mortality buffer in m (last 7 days)", min=0, value=NA),
+                      h5("2. Define the radius (in km) an animal must move past to qualify as migration behaviour. Default 100 km"),
+                      numericInput(ns("mig7d_dist"),"Migration buffer in km (last 7 days)", min=0, value=100),
+                      h5("3. Define the radius (in m) within which an animal must remain to indicate a likely mortality. Default 100 m"),
+                      numericInput(ns("dead7d_dist"),"Mortality buffer in m (last 7 days)", min=0, value=100),
                       
-                      h5("4. Select your reference position, i.e. if you are in the field use your current location to find out if any tagged animals are in the surroundings. The distance to this location will be calculated for all of your data points. If no location is provided, the last position of each track is used."),
+                      h5("4. Select your reference position by clicking on the map, i.e. if you are in the field use your current location to find out if any tagged animals are in the surroundings. The distance to this location will be calculated for all of your data points. If no location is selected, the last position of each track is used."),
                       leafletOutput(ns("testmap")),
                       fluidRow(
                         column(1,uiOutput(ns("posLat_UI"))),
                         column(1,uiOutput(ns("posLon_UI"))),
                         column(1,actionButton(ns("set2Na"),"Reset to last position of track"),style = 'top: 25px;position:relative;')
                       )
-                      
              ),
-             
              
              tabPanel("Visualization",
                       div(id=ns("C"),class='shiny-input-radiogroup',DT::dataTableOutput(ns("foo"))),
                       sidebarLayout(
                         sidebarPanel(
-                          
                           selectInput(inputId = ns("sort_table"),
                                       label = "Select property by which to sort the overview table",
                                       choices = c("animal name" = "ids", "tag ID" = "tags", "timestamp of first deployed location" = "time0", "timestamp of last deployed location"= "timeE", "number of locations during last 24 hours" = "posis24h", "number of locations during last 7 days" = "posis7d", "displacement during last 24 hours (km)" = "displ24h", "displacement during last 7 days (km)" = "displ7d")), #, "local timestamp of last deployed location" = "timeE_local"
@@ -76,6 +71,7 @@ shinyModuleUserInterface <- function(id, label){
                           fluidRow(
                             column(width=6,
                                    plotOutput(ns("attr_time"),height="220px"),
+                                   # textOutput(ns("errortext")),
                                    plotOutput(ns("attr2_time"),height="220px"),
                                    plotOutput(ns("prop_time"),height="220px")
                             ),
@@ -128,7 +124,7 @@ shinyModule <- function(input, output, session, data){
                 timeFormat = "%Y-%m-%d %H:%M:%S", ticks = F, animate = T)
   })
   
-## selected position is saved in bookmarks, and cab be deleted if last position wants to be used
+  ## selected position is saved in bookmarks, and cab be deleted if last position wants to be used
   posi_lon <- reactiveVal(value=NA)
   posi_lat <- reactiveVal(value=NA)
   observeEvent(input$testmap_click,{
@@ -151,13 +147,6 @@ shinyModule <- function(input, output, session, data){
   
   # table parameters
   overviewObj <- reactive({
-    # validate(
-    #   need(!is.na(input$mig7d_dist), "Please define the migration buffer in the settings")
-    # )
-    # validate(
-    #   need(!is.na(input$dead7d_dist),  "Please define the mortality buffer in the settings")
-    #   )
-    
     names(data) <- make.names(names(data),allow_=FALSE)
     
     data_spl <- move::split(data)
@@ -298,8 +287,12 @@ shinyModule <- function(input, output, session, data){
     }})
   
   avgdaily_dist2posi <- reactive({
-    if (is.na(input$posLon)){lonZ <- coordinates(data_sel_id())[1,1]} else {lonZ <- input$posLon}
-    if (is.na(input$posLat)){latZ <- coordinates(data_sel_id())[1,2]} else {latZ <- input$posLat}
+    # ## using 1st position
+    # if (is.na(input$posLon)){lonZ <- coordinates(data_sel_id())[1,1]} else {lonZ <- input$posLon}
+    # if (is.na(input$posLat)){latZ <- coordinates(data_sel_id())[1,2]} else {latZ <- input$posLat}
+    ## using last position
+    if (is.na(input$posLon)){lonZ <- coordinates(data_sel_id())[n.locs(data_sel_id()),1]} else {lonZ <- input$posLon}
+    if (is.na(input$posLat)){latZ <- coordinates(data_sel_id())[n.locs(data_sel_id()),2]} else {latZ <- input$posLat}
     
     foreach(dayi = daysObj(), .combine=c) %do% {
       ix <- which(as.Date(timestamps(data_sel_id()))==dayi)
@@ -315,6 +308,10 @@ shinyModule <- function(input, output, session, data){
   ##### plots
   ## HERE: TRY AND ADAPT ERROR MESSAGES IF THERE ARE NO DATA SELECTED
   output$attr_time <- renderPlot({
+    # if(!exists("data_sel_id")){output$errortext <- renderText({"ERROR: Your data set does not contain any locations of the previous 5 months before your selected reference time (default NOW). Please adapt your reference time or load different data"})}
+    # if(!exists("data_sel_id")){return(plot_exception("ERROR: Your data set does not contain any locations of the previous 5 months before your selected reference time (default NOW). Please adapt your reference time or load different data"))}
+    # validate(need(data_sel_id,"Dataframe not found")) 
+    
     if (input$attr=="nsd") plot(timeObj(),nsd(),type="b",xlim=c(min(timeObj(),na.rm=TRUE),max(timeObj(),na.rm=TRUE)),ylim=c(min(nsd(),na.rm=TRUE),max(nsd(),na.rm=TRUE)),xlab="time",ylab="nsd (km2)",col=2,lwd=2) else plot(timeObj(),attrObj(),type="b",xlim=c(min(timeObj(),na.rm=TRUE),max(timeObj(),na.rm=TRUE)),ylim=c(min(attrObj(),na.rm=TRUE),max(attrObj(),na.rm=TRUE)),xlab="time",ylab=input$attr,col=2,lwd=2)
   })
   

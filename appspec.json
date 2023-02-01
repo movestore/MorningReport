@@ -1,41 +1,5 @@
 {
-  "settings": [
-    {
-      "id": "time_now",
-      "name": "Reference timestamp",
-      "description": "Define your reference time - the time from which you want to look back at your data. If your tags are still functioning, this is typically ‘NOW’. As such, if you don’t enter a time, ‘NOW’ will be used by default.",
-      "defaultValue": null,
-      "type": "INSTANT"
-    },
-	{
-      "id": "posi_lon",
-      "name": "Longitude of reference position",
-      "description": "Select the longitude of your reference position, i.e. if you are in the field use your current location. The distance to this location will be calculated for all of your data points. If no location is provided, the first position of each track is used.",
-      "defaultValue": null,
-      "type": "DOUBLE"
-    },
-    {
-	  "id": "posi_lat",
-      "name": "Latitude of reference position",
-      "description": "Select the latitude of your reference position, i.e. if you are in the field use your current location. The distance to this location will be calculated for all of your data points. If no location is provided, the first position of each track is used.",
-      "defaultValue": null,
-      "type": "DOUBLE"
-	},
-		{
-      "id": "mig7d_dist",
-      "name": "Migration buffer (last 7 days) *",
-      "description": "Define the radius (in m) an animal must move past to qualify as migration behaviour. *This parameter is mandatory.",
-      "defaultValue": 100000.0,
-      "type": "DOUBLE"
-    },
-    {
-	  "id": "dead7d_dist",
-      "name": "Mortality buffer (last 7 days) *",
-      "description": "Define the radius (in m) within which an animal must remain to indicate a likely mortality. *This parameter is mandatory.",
-      "defaultValue": 100.0,
-      "type": "DOUBLE"
-	}
-  ],
+  "settings": [],
   "dependencies": {
     "R": [
       {
@@ -72,10 +36,10 @@
 		"name": "lutz"
 	  },
 	  {
-	    "name":"shinyBS"
+	    "name":"shinyTime"
 	  },
 	  {
-	    "name":"shinyTime"
+	    "name":"lubridate"
 	  }
     ]
   },
