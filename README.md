@@ -9,7 +9,7 @@ This App provides an interactive update of your (recent) tracking data. It gives
 ## Documentation
 This App lets the user interactively explore the input Movement data set, which is usually downloaded from Movebank and contains data from presently deployed and running tags. It gives a `Morning Report` of how the animals and tags are/were doing.
 
-On the top of the user interface (UI), an overview table is given that provides a data overview: For each animal and tag it shows the first and last timestamp, the number of positions and distance travelled during the last 24 hours or 7 days, respectively. If the animal was migrating, dead or had no data during the last 7 days then this event would be indicated. In the sidebar one can select the column name according to which the rows in the table shall be ordered (in ascending or descending order). In the left colum of the table, single individuals can be selected for plotting selected properties and a map in the lower part.
+On the top of the user interface (UI), an overview table is given that provides a data overview: For each animal and tag it shows the first and last timestamp, the number of positions and distance traveled during the last 24 hours or 7 days, respectively. If the animal was migrating, dead or had no data during the last 7 days then this event would be indicated. In the sidebar one can select the column name according to which the rows in the table shall be ordered (in ascending or descending order). In the left column of the table, single individuals can be selected for plotting selected properties and a map in the lower part.
 
 Note that the output of the last timestamp in local timezone (for convenience in the field) has been disactivated due to non-functioning of a required R-package.
 
@@ -28,26 +28,27 @@ Shiny user interface (UI)
 none
 
 ### Parameters 
-`time_now`: reference timestamp towards which all analyses are performed. Generally (and by default) this is NOW, especially if in the field and looking for one or the other animal or wanting to make sure that it is still doing fine. When analysing older data sets, this parameter can be set to other timestamps so that the data fall into the 5 month time interval possible to explore. This parameter is also noted in the UI above the time slider.
+`Date` and `Time`: reference timestamp towards which all analyses are performed. Generally (and by default) this is NOW in UTC, especially if in the field and looking for one or the other animal or wanting to make sure that it is still doing fine. When analysing older data sets, this parameter can be set to other timestamps so that the data fall into the 5 month time interval possible to explore. This chosen timestamp is also noted in the UI above the time slider.
 
-`posi_lon`: longitude of the position to which average daily distances are to be calculated. Typically this is the observer position in the field, if one wants to find out if any tagged animals are in the surroundings.
+`Migration buffer in km (last 7 days)`: user-defined distance (in km) that an animal of the respective species is expected to minimally move during up to 7 days during migration. This variable is used to define the event `migration` that is reported in the overview table. The default value is presently set to 100 km. Units km.
 
-`posi_lat`: latitude of the position to which average daily distances are to be calculated. Typically this is the observer position in the field, if one wants to find out if any tagged animals are in the surroundings.
+`Mortality buffer in m (last 7 days)`: user-defined distance (in m) that an animal of the respective species is expected to minimally move during 7 days if it is alive. Take into account the data resolution, which can also miss longer displacements. This variable is used to define the event `dead` that is reported in the overview table. The default value is presently set to 100 m. Units m.
 
-`mig7d_dist`: user-defined distance that an animal of the respecitve species is expected to minimally move during up to 7 days during migration. This variable is used to define the event `migration` that is reported in the overview table. The default value is presently set to 100000 m = 100 km.
+`Reference position`: select reference position, by clicking on the map, to which average daily distances are to be calculated. Typically this is the observer position in the field, if one wants to find out if any tagged animals are in the surroundings. If no location is selected, the last position of each track is used. 
 
-`dead7d_dist`: user-defined distance that an animal of the respecitve species is expected to minimally move during 7 days if it is alive. Take into account the data resolution, which can also miss longer displacements. This variable is used to define the event `dead` that is reported in the overview table. The default value is presently set to 100 m.
+`Reset to last position of track`: Click to remove selected position, and use the last position of the selected animal as a reference point.
+
+
+
 
 ### Null or error handling:
-**Parameter `time_now`:** If this parameter is left empty (NULL) the reference time is set to NOW. The present timestamp is extracted in UTC from the MoveApps server system.
+**Parameter `Date` and `Time`:** By default the reference time is set to NOW. The present timestamp is extracted in UTC from the MoveApps server system.
 
-**Parameter `posi_lon`:** If this parameter is left emtpy (NULL), for each animal the longitude of the first available position is used as reference for the caclualtion of average daily distances to a position.
+**Parameter `Reference position`:** If no location is chosen, for each animal the longitude of the last available position is used as reference for the calculation of average daily distances to a position.
 
-**Parameter `posi_lat`:** If this parameter is left emtpy (NULL), for each animal the latitude of the first available position is used as reference for the caclualtion of average daily distances to a position.
+**Parameter `Migration buffer in km (last 7 days)`:** The parameter has a explicit default value, so NULL or non-numeric values are not possible and will give an error.
 
-**Parameter `mig7d_dist`:** The parameter has a explicit default value, so NULL or non-numeric values are not possible and will give an error.
-
-**Parameter `dead7d_dist`:** The parameter has a explicit default value, so NULL or non-numeric values are not possible and will give an error.
+**Parameter `Mortality buffer in m (last 7 days)`:** The parameter has a explicit default value, so NULL or non-numeric values are not possible and will give an error.
 
 **Data:** The data are not manipulated in this App, but interactively explored. So that a possible Workflow can be continued after this App, the input data set is returned.
 
