@@ -11,6 +11,7 @@ library('leaflet')
 library('sf')
 library("shinyTime")
 library("lubridate")
+library("shinyBS")
 
 #setwd("/root/app/")
 Sys.setenv(tz="UTC")
@@ -26,9 +27,12 @@ shinyModuleUserInterface <- function(id, label){
   navbarPage("Morning Report",
              tabPanel("Settings", 
                       fluidRow(
-                        h5("1. Define your reference date and time, i.e. the date and time from which you want to look back at your data. If your tags are still functioning, this is typically ‘NOW’ in UTC. If you don’t change the date and time, ‘NOW’ will be used by default"),
+                        h5("1. Define your reference date and time, i.e. the date and time from which you want to look back at your data. If your tags are still functioning, this is typically ‘NOW’ in UTC. If you don’t change the date and time, ‘NOW’ will be used by default."),
+                        h5("Check the box 'Always use 'NOW'' to use the 'NOW' date and time of each run of a scheduled workflow, date and time will be updated at each run. Unckeck the box if you want to use a fixed date and time."),
                         column(3,dateInput(ns("date"),"Date:", value = as_date(now("UTC")))),
-                        column(3,timeInput(ns("time"), "Time (24h format):", value = strftime(now("UTC"), format="%H:%M:%S", tz="UTC"), seconds = FALSE))
+                        column(2,timeInput(ns("time"), "Time (24h format):",value= now("UTC"), seconds = FALSE)), 
+                        column(2, checkboxInput(ns("alwaysNOW"), "Always use date and time 'NOW'", value=TRUE),style = 'top: 25px;position:relative;'),
+                        bsTooltip(id=ns("alwaysNOW"), title="Checked: When this app is part of a scheduled workflow, each time the workflow runs, it will use the date and time of moment when the app is executed. Unchecked: the selected date and time will be fixed.", placement = "bottom", trigger = "hover", options = list(container = "body")),
                       ),
                       h5("2. Define the radius (in km) an animal must move past to qualify as migration behaviour. Default 100 km"),
                       numericInput(ns("mig7d_dist"),"Migration buffer in km (last 7 days)", min=0, value=100),
@@ -115,7 +119,12 @@ shinyModule <- function(input, output, session, data){
   ##
   time_now <- reactiveVal()
   output$start_timeUI <- renderUI({
-    time_now(as.POSIXct(paste0(input$date," ",strftime(input$time, format="%H:%M:%S"))))
+    ## when workflow is scheduled,it always takes the time of that moment when it runs if alwaysNOW is checked
+    updateDateInput(session, "date", value = if(input$alwaysNOW){as_date(now("UTC"))}else{input$date})
+    updateTimeInput(session, "time", value = if(input$alwaysNOW==TRUE){now("UTC")}else{input$time})
+    
+    time_now(as.POSIXct(paste0(input$date," ",strftime(input$time, format="%H:%M:%S")),tz="UTC"))
+    
     sliderInput(ns("start_time"),
                 paste0("Choose start time for map and plots (reference: ",input$date," ", strftime(input$time, format="%H:%M:%S"),")"),
                 min = time_now() - as.difftime(20,units="weeks"),
@@ -287,10 +296,6 @@ shinyModule <- function(input, output, session, data){
     }})
   
   avgdaily_dist2posi <- reactive({
-    # ## using 1st position
-    # if (is.na(input$posLon)){lonZ <- coordinates(data_sel_id())[1,1]} else {lonZ <- input$posLon}
-    # if (is.na(input$posLat)){latZ <- coordinates(data_sel_id())[1,2]} else {latZ <- input$posLat}
-    ## using last position
     if (is.na(input$posLon)){lonZ <- coordinates(data_sel_id())[n.locs(data_sel_id()),1]} else {lonZ <- input$posLon}
     if (is.na(input$posLat)){latZ <- coordinates(data_sel_id())[n.locs(data_sel_id()),2]} else {latZ <- input$posLat}
     
