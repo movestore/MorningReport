@@ -25,7 +25,7 @@ Shiny user interface (UI)
 ### Artefacts
 none
 
-### Parameters 
+### Settings
 `Date` and `Time`: reference timestamp towards which all analyses are performed. Generally (and by default) this is NOW in UTC, especially if in the field and looking for one or the other animal or wanting to make sure that it is still doing fine. When analysing older data sets, this parameter can be set to other timestamps so that the data fall into the 5 month time interval possible to explore. This chosen timestamp is also noted in the UI above the time slider.
 
 `Always use date and time 'NOW'`: *Check* this box to use the 'NOW' date and time of each run of a scheduled workflow. When this app is part of a scheduled workflow, each time the workflow runs, it will use the date and time of moment when the app is executed. *Unckeck* the box if you want to use a fixed date and time. Box is checked by default.
@@ -41,13 +41,13 @@ none
 
 
 ### Null or error handling:
-**Parameter `Date` and `Time`:** By default the reference time is set to NOW. The present timestamp is extracted in UTC from the MoveApps server system. An error will be displayed if the data set does not contain any locations of the previous 5 months before the selected reference time (default NOW). Check the time span of the data in the overview table in the tab "Visualization" and adjust the date.
+**Setting `Date` and `Time`:** By default the reference time is set to NOW. The present timestamp is extracted in UTC from the MoveApps server system. An error will be displayed if the data set does not contain any locations of the previous 5 months before the selected reference time (default NOW). Check the time span of the data in the overview table in the tab "Visualization" and adjust the date.
 
-**Parameter `Reference position`:** If no location is chosen, for each animal the longitude of the last available position is used as reference for the calculation of average daily distances to a position.
+**Setting `Reference position`:** If no location is chosen, for each animal the longitude of the last available position is used as reference for the calculation of average daily distances to a position.
 
-**Parameter `Migration buffer in km (last 7 days)`:** The parameter has a explicit default value, so NULL or non-numeric values are not possible and will give an error.
+**Setting `Migration buffer in km (last 7 days)`:** The parameter has a explicit default value, so NULL or non-numeric values are not possible and will give an error.
 
-**Parameter `Mortality buffer in m (last 7 days)`:** The parameter has a explicit default value, so NULL or non-numeric values are not possible and will give an error.
+**Setting `Mortality buffer in m (last 7 days)`:** The parameter has a explicit default value, so NULL or non-numeric values are not possible and will give an error.
 
 **Data:** The data are not manipulated in this App, but interactively explored. So that a possible Workflow can be continued after this App, the input data set is returned.
 
