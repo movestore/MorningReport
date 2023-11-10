@@ -342,7 +342,7 @@ shinyModule <- function(input, output, session, data){
       addCircleMarkers(data = tail(coordinates(data_sel_id()),n=3), fillOpacity = 0.3, opacity = 0.5, color="red", radius=1, group = "last positions") %>%
       addLegend(position= "topright", colors=c("cyan","blue","red"),
                 labels=c("lines","points","last positions") ,opacity = 0.7, title = paste("track",unique(trackId(data_sel_id())))) %>%
-      addScaleBar(position="bottomleft",
+      addScaleBar(position="topleft",
                   options=scaleBarOptions(maxWidth = 100,
                                           metric = TRUE, imperial = F, updateWhenIdle = TRUE)) %>%
       addLayersControl(
