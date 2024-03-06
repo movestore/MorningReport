@@ -10,15 +10,15 @@
 #' 
 getAppFilePath <- function(appSpecLocalFileSettingId, fallbackToProvidedFiles=TRUE) {
     if(!is.null(appSpecLocalFileSettingId) && appSpecLocalFileSettingId != "") {
-        userUpload <- paste0(Sys.getenv(x = "LOCAL_APP_FILES_DIR", "./uploaded-app-files/"), appSpecLocalFileSettingId, "/")
-        if (file.exists(userUpload) && list.files(userUpload) > 0) {
+        userUpload <- paste0(Sys.getenv(x = "LOCAL_APP_FILES_DIR"), "/uploaded-app-files/", appSpecLocalFileSettingId, "/")
+        if (file.exists(userUpload) && length(list.files(userUpload)) > 0) {
             # directory exists and is not empty: user provided some files
             logger.info(paste0("Detected app-files provided by user for '", appSpecLocalFileSettingId, "'."))
             return(userUpload)
         } else if(fallbackToProvidedFiles) {
             # fallback to directory provided by app developer
             logger.info(paste0("Using fallback files provided by app developer for '", appSpecLocalFileSettingId, "'."))
-            return(paste0("./provided-app-files/", appSpecLocalFileSettingId, "/"))
+            return(paste0(Sys.getenv(x = "LOCAL_APP_FILES_DIR"), "/provided-app-files/", appSpecLocalFileSettingId, "/"))
         } else {
             logger.warn(paste0("No files present for app-files '", appSpecLocalFileSettingId, "': User did not upload anything and the app did not provide fallback files."))
             return(NULL)
@@ -32,5 +32,5 @@ getAppFilePath <- function(appSpecLocalFileSettingId, fallbackToProvidedFiles=TR
 #' @return Path for the artifact. Use it to write your data
 #'
 appArtifactPath <- function(artifactName) {
-    return(paste0(Sys.getenv(x = "APP_ARTIFACTS_DIR", "/tmp/"), artifactName))
+    return(paste0(Sys.getenv(x = "APP_ARTIFACTS_DIR", "."), artifactName))
 }
