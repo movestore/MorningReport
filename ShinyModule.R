@@ -12,6 +12,7 @@ library('sf')
 library("shinyTime")
 library("lubridate")
 library("shinyBS")
+library("shinycssloaders")
 
 #setwd("/root/app/")
 Sys.setenv(tz="UTC")
@@ -29,10 +30,11 @@ shinyModuleUserInterface <- function(id, label){
                       fluidRow(
                         h5("1. Define your reference date and time, i.e. the date and time from which you want to look back at your data. If your tags are still functioning, this is typically ‘NOW’ in UTC. If you don’t change the date and time, ‘NOW’ will be used by default."),
                         h5("Check the box 'Always use 'NOW'' to use the 'NOW' date and time of each run of a scheduled workflow, date and time will be updated at each run. Unckeck the box if you want to use a fixed date and time."),
+                        verbatimTextOutput(ns("ts_lastPos")),
                         column(3,dateInput(ns("date"),"Date:", value = as_date(now("UTC")))),
                         column(2,timeInput(ns("time"), "Time (24h format):",value= now("UTC"), seconds = FALSE)), 
-                        column(2, checkboxInput(ns("alwaysNOW"), "Always use date and time 'NOW'", value=TRUE),style = 'top: 25px;position:relative;'),
-                        bsTooltip(id=ns("alwaysNOW"), title="Checked: When this app is part of a scheduled workflow, each time the workflow runs, it will use the date and time of moment when the app is executed. Unchecked: the selected date and time will be fixed.", placement = "bottom", trigger = "hover", options = list(container = "body")),
+                        column(2, checkboxInput(ns("alwaysNOW"), "Always use date and time 'NOW'", value=TRUE),style = 'top: 25px;position:relative;',
+                        bsTooltip(id=ns("alwaysNOW"), title="Checked: When this app is part of a scheduled workflow, each time the workflow runs, it will use the date and time of moment when the app is executed. Unchecked: the selected date and time will be fixed.", placement = "bottom", trigger = "hover", options = list(container = "body")))
                       ),
                       h5("2. Define the radius (in km) an animal must move past to qualify as migration behaviour. Default 100 km"),
                       numericInput(ns("mig7d_dist"),"Migration buffer in km (last 7 days)", min=0, value=100),
@@ -71,15 +73,19 @@ shinyModuleUserInterface <- function(id, label){
                                       choices = c("number of positions per day" = "n_day", "displacement per day (km)" = "displ_day", "average daily distance to selected position (km)" = "avgdaily_dist2posi")),
                           width=2),
                         mainPanel(
+                          tags$style(type="text/css", 
+                                     ".shiny-output-error { visibility: hidden; }",
+                                     ".shiny-output-error:before { visibility: hidden; }"
+                          ), # hidding the red R error messages
                           #leafletOutput(ns("leafmap"),height="500px"),
                           fluidRow(
                             column(width=6,
+                                   # verbatimTextOutput(ns("errortext")),
                                    plotOutput(ns("attr_time"),height="220px"),
-                                   # textOutput(ns("errortext")),
                                    plotOutput(ns("attr2_time"),height="220px"),
                                    plotOutput(ns("prop_time"),height="220px")
                             ),
-                            column(width=6, leafletOutput(ns("leafmap"),height="500px"))
+                            column(width=6, withSpinner(leafletOutput(ns("leafmap"),height="500px")))
                           )
                         )
                       )
@@ -95,6 +101,8 @@ shinyModule <- function(input, output, session, data){
   
   ## map to choose coords from
   output$testmap <- renderLeaflet({
+    output$ts_lastPos <- renderText({paste0("Reference: last timestamp in data set is ", max(mt_time(data)))})
+      
     lasLocs <- data%>%group_by(mt_track_id())%>%filter(row_number()==n())
     
     bounds <- as.vector(st_bbox(lasLocs))
@@ -326,9 +334,7 @@ shinyModule <- function(input, output, session, data){
   ##### plots
   ## HERE: TRY AND ADAPT ERROR MESSAGES IF THERE ARE NO DATA SELECTED
   output$attr_time <- renderPlot({
-    # if(!exists("data_sel_id")){output$errortext <- renderText({"ERROR: Your data set does not contain any locations of the previous 5 months before your selected reference time (default NOW). Please adapt your reference time or load different data"})}
-    # if(!exists("data_sel_id")){return(plot_exception("ERROR: Your data set does not contain any locations of the previous 5 months before your selected reference time (default NOW). Please adapt your reference time or load different data"))}
-    # validate(need(data_sel_id,"Dataframe not found")) 
+    # if(nrow(isolate(data_sel_id())==0)){output$errortext <- renderPrint({"ERROR: Your data set does not contain any locations of the previous 5 months before your selected reference time (default NOW). Please adapt your reference time in the 'Settings' tab"})}
     
     if (input$attr=="nsd"){
       plot(timeObj(),nsd(),type="b",
