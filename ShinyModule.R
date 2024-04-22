@@ -42,7 +42,7 @@ shinyModuleUserInterface <- function(id, label){
                       numericInput(ns("dead7d_dist"),"Mortality buffer in m (last 7 days)", min=0, value=100),
                       
                       h5("4. Select your reference position by clicking on the map, i.e. if you are in the field use your current location to find out if any tagged animals are in the surroundings. The distance to this location will be calculated for all of your data points. If no location is selected, the last position of each track is used."),
-                      leafletOutput(ns("testmap")),
+                      withSpinner(leafletOutput(ns("testmap"))),
                       fluidRow(
                         column(1,uiOutput(ns("posLat_UI"))),
                         column(1,uiOutput(ns("posLon_UI"))),
