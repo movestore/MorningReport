@@ -2,7 +2,9 @@
 .Rhistory
 .RData
 .Ruserdata
-data/output
+.DS_Store
+data/output/**
+!data/output/.keep
 .cache/
 .config/
 .local/

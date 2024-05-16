@@ -1,49 +1,23 @@
 {
+  "version": "1.2",
   "settings": [],
   "dependencies": {
     "R": [
-      {
-        "name": "move"
-      },
-      {
-        "name": "shiny"
-      },
-	        {
-        "name": "shinyWidgets"
-      },
-	        {
-        "name": "foreach"
-      },
-	        {
-        "name": "maps"
-      },
-	        {
-		"name": "geosphere"
-      },
-	        {
-		"name": "DT"
-      },
-	        {
-        "name": "dplyr"
-      },
-      {
-        "name": "sf"
-      },
-	  {
-        "name": "leaflet"
-      },
-	  {
-		"name": "lutz"
-	  },
-	  {
-	    "name":"shinyTime"
-	  },
-	  {
-	    "name":"lubridate"
-	  },
-	  {
-	    "name":"shinyBS"
-	  }
+      {"name": "move2"},
+      {"name": "shiny"},
+	    {"name": "shinyWidgets"},
+	    {"name": "foreach"},
+	    {"name": "maps"},
+	    {"name": "geosphere"},
+	    {"name": "DT"},
+	    {"name": "dplyr"},
+      {"name": "sf"},
+	    {"name": "leaflet"},
+	    {"name": "lutz"},
+	    {"name":"shinyTime"},
+	    {"name":"lubridate"},
+	    {"name":"shinyBS"},
+	    {"name":"shinycssloaders"}
     ]
   },
   "license": {
@@ -55,31 +29,28 @@
     "interactive",
     "data overview",
     "update",
-    "shiny
+    "shiny"
   ],
   "people": [
-    {
-      "firstName": "Andrea",
-      "middleInitials": null,
-      "lastName": "Kölzsch",
-      "email": "akoelzsch@ab.mpg.de",
-      "roles": ["author", "creator"],
-      "orcid": "0000-0003-0193-1563",
-      "affiliation": "Max-Planck-Institute of Animal Behavior",
-      "affiliationRor": "https://ror.org/026stee22"
-    },
 	  {
   "firstName": "Anne",
   "middleInitials": "K",
   "lastName": "Scharf",
   "email": "ascharf@ab.mpg.de",
-  "roles": ["contributor"],
+  "roles": ["author", "creator"],
   "orcid": "0000-0002-3357-8533",
   "affiliation": "Max-Planck-Institute of Animal Behavior",
   "affiliationRor": "https://ror.org/026stee22"
-}
-  ],
-  "documentation" : {
-    "url": "https://github.com/movestore/MorningReport/blob/master/README.md"
-  }
+},
+{
+      "firstName": "Andrea",
+      "middleInitials": null,
+      "lastName": "Kölzsch",
+      "email": "akoelzsch@ab.mpg.de",
+      "roles": ["author"],
+      "orcid": "0000-0003-0193-1563",
+      "affiliation": "Max-Planck-Institute of Animal Behavior",
+      "affiliationRor": "https://ror.org/026stee22"
+    }
+  ]
 }

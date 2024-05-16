@@ -1,21 +1,19 @@
-configuration <- function() {
-    configurationString <- Sys.getenv(x = "CONFIGURATION", "{}")
-
-    result <- if(configurationString != "") {
-        jsonlite::fromJSON(txt=configurationString)
-    } else {
-        NULL
+clearRecentOutput <- function() {
+    if (Sys.getenv(x = "CLEAR_OUTPUT", "no") == "yes") {
+        logger.info("Clearing recent output")
+        # delete and recreate artifact directory if it exists
+        artifact_dir <- Sys.getenv(x = "APP_ARTIFACTS_DIR", "")
+        if (artifact_dir != "") {
+            unlink(artifact_dir, recursive = TRUE)
+            dir.create(artifact_dir)
+            file.create(file.path(artifact_dir, ".keep"))
+        }
+        # delete app output file
+        output_file <- Sys.getenv(x = "OUTPUT_FILE", "")
+        if (output_file != "") {
+            unlink(output_file)
+        }
+        # delete the shiny bookmark
+        unlink("./shiny_bookmarks/latest/input.rds")
     }
-
-    if (Sys.getenv(x = "PRINT_CONFIGURATION", "no") == "yes") {
-        logger.debug("parse stored configuration: \'%s\'", configurationString)
-        logger.info("app will be started with configuration:\n%s", jsonlite::toJSON(result, auto_unbox = TRUE, pretty = TRUE))
-    }
-    result
-}
-
-storeConfiguration <- function(configuration) {
-  jsonlite::write_json(configuration, "./data/output/configuration.json", auto_unbox = TRUE)
-  Sys.setenv(CONFIGURATION = jsonlite::toJSON(configuration, auto_unbox = TRUE))
-  logger.info("Stored configuration of shinyModule to 'configuration.json'")
 }

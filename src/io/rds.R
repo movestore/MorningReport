@@ -1,3 +1,5 @@
+library('move2')
+
 readRdsInput <- function(sourceFile) {
   if(!is.null(sourceFile) && sourceFile != "") {
     if (file.info(sourceFile)$size == 0) {
@@ -8,7 +10,8 @@ readRdsInput <- function(sourceFile) {
         stop("The App has received invalid input! It cannot process NULL-input. Check the output of the preceding App or adjust the datasource configuration. [code 10]")
     }
     logger.debug("Reading RDS from file '%s'", sourceFile)
-    return(readRDS(file = sourceFile))
+    rds <- readRDS(file = sourceFile)
+    return(rds)
   } else {
     logger.debug("Skip loading: no source File")
   }
