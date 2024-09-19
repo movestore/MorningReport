@@ -29,19 +29,28 @@ move2_loc
 none
 
 ### Settings
-`Date` and `Time`: reference timestamp towards which all analyses are performed. Generally (and by default) this is NOW in UTC, especially if in the field and looking for one or the other animal or wanting to make sure that it is still doing fine. When analyzing older data sets, this parameter can be set to other timestamps so that the data fall into the 5 month time interval possible to explore. In this case make sure to unselect the "NOW" check box. As a reference the last timestamp of the data set is displayed. This chosen timestamp is also noted in the time slider in the sidebar of the Visualization tab.
+Tab "Settings":
 
-`Always use date and time 'NOW'`: *Check* this box to use the 'NOW' date and time of each run of a scheduled workflow. When this app is part of a scheduled workflow, each time the workflow runs, it will use the date and time of moment when the app is executed. *Unckeck* the box if you want to use a fixed date and time. Box is checked by default.
+  - `Date` and `Time`: reference timestamp towards which all analyses are performed. Generally (and by default) this is NOW in UTC, especially if in the field and looking for one or the other animal or wanting to make sure that it is still doing fine. When analyzing older data sets, this parameter can be set to other timestamps so that the data fall into the 5 month time interval possible to explore. In this case make sure to unselect the "NOW" check box. As a reference the last timestamp of the data set is displayed. This chosen timestamp is also noted in the time slider in the sidebar of the Visualization tab.
 
-`Migration buffer in km (last 7 days)`: user-defined distance (in km) that an animal of the respective species is expected to minimally move during up to 7 days during migration. This variable is used to define the event `migration` that is reported in the overview table. The default value is presently set to 100 km. Units km.
+  - `Always use date and time 'NOW'`: *Check* this box to use the 'NOW' date and time of each run of a scheduled workflow. When this app is part of a scheduled workflow, each time the workflow runs, it will use the date and time of moment when the app is executed. *Unckeck* the box if you want to use a fixed date and time. Box is checked by default.
 
-`Mortality buffer in m (last 7 days)`: user-defined distance (in m) that an animal of the respective species is expected to minimally move during 7 days if it is alive. Take into account the data resolution, which can also miss longer displacements. This variable is used to define the event `dead` that is reported in the overview table. The default value is presently set to 100 m. Units m.
+  - `Migration buffer in km (last 7 days)`: user-defined distance (in km) that an animal of the respective species is expected to minimally move during up to 7 days during migration. This variable is used to define the event `migration` that is reported in the overview table. The default value is presently set to 100 km. Units km.
 
-`Reference position`: select reference position, by clicking on the map, to which average daily distances are to be calculated. Typically this is the observer position in the field, if one wants to find out if any tagged animals are in the surroundings. If no location is selected, the last position of each track is used. 
+  - `Mortality buffer in m (last 7 days)`: user-defined distance (in m) that an animal of the respective species is expected to minimally move during 7 days if it is alive. Take into account the data resolution, which can also miss longer displacements. This variable is used to define the event `dead` that is reported in the overview table. The default value is presently set to 100 m. Units m.
+
+  - `Reference position`: select reference position, by clicking on the map, to which average daily distances are to be calculated. Typically this is the observer position in the field, if one wants to find out if any tagged animals are in the surroundings. If no location is selected, the last position of each track is used. 
 **NOTE:** currently when the settings are stored in a previous session, and the app is opened again, the reference position will not appear on the map, but the coordinates are still saved and shown on the bottom left below the map.
 
-`Reset to last position of track`: Click to remove selected position, and use the last position of the selected animal as a reference point. *Bug*: currently the "selected location" remains displaying on the map, but the has no effect.
+  - `Reset to last position of track`: Click to remove selected position, and use the last position of the selected animal as a reference point. *Bug*: currently the "selected location" remains displaying on the map, but the has no effect.
 
+Tab "Visualization":
+  - `Show Plots and Map`: choose which track should be shown on the plot.
+  - `Select property by which to sort the overview table`: choose column by which to sort the table above.
+  - `Choose how to sort the table`: choose if the table should be sortet ascending or descending acording to the column chosen above
+  - `Choose start time for map and plots (reference: yyyy-mm-dd HH:MM:SS)`: selection of the start timestamp which has been defined to be at the most 5 months before the reference (selected in Tab Settings).
+  - `Select which data attribute to plot`/`Select which second data attribute to plot`: select which data attribute should be shown in the first and the second plot.
+  - `Select which daily property to plot`: select which calculated daily property should be shown in the third plot.
 
 ### Null or error handling:
 **Setting `Date` and `Time`:** By default the reference time is set to NOW. The present timestamp is extracted in UTC from the MoveApps server system. An error will be displayed if the data set does not contain any locations of the previous 5 months before the selected reference time (default NOW). Check the time span of the data in the overview table in the tab "Visualization" and adjust the date and unckeck the "NOW" box.
