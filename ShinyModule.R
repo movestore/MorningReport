@@ -136,7 +136,8 @@ shinyModule <- function(input, output, session, data){
                 min = time_now() - as.difftime(20,units="weeks"),
                 max = time_now(),
                 value = time_now() - as.difftime(20,units="weeks"),
-                timeFormat = "%Y-%m-%d %H:%M:%S", ticks = F, animate = T)
+                # step=1,
+                timeFormat = "%Y-%m-%d %H:%M:%S", ticks = F, animate = animationOptions(interval = 2000))
   })
   
   ## selected position is saved in bookmarks, and cab be deleted if last position wants to be used
