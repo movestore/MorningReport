@@ -216,9 +216,9 @@ shinyModule <- function(input, output, session, data){
     
     evnt <- function(x){
       if(!all(is.na(x$meanlat))){
-        if (any(distVincentyEllipsoid(st_coordinates(x),c(unique(x$meanlon),unique(x$meanlat)))>(500*1000))){
+        if (any(distVincentyEllipsoid(st_coordinates(x),c(unique(x$meanlon),unique(x$meanlat)))>(input$mig7d_dist*1000))){
           df <- data.frame(event="migration")
-        } else if (all(distVincentyEllipsoid(st_coordinates(x),c(unique(x$meanlon),unique(x$meanlat)))<100 )){
+        } else if (all(distVincentyEllipsoid(st_coordinates(x),c(unique(x$meanlon),unique(x$meanlat)))<input$dead7d_dist)){
           df <- data.frame(event="dead")
         } else{df <- data.frame(event="-")}
       } else {df <- data.frame(event="no data")}
