@@ -18,17 +18,25 @@ Below the time slider, three drop down selection menus allow to define which dat
 
 The leaflet map on the right side shows the track of the selected animal in the selected time interval (from time slider selected time to reference timestamp). All positions are shown as blue points, connected by light blue lines. The most recent 5 positions are highlighted in red so that the present location of the animal can easily be picked out. The points and lines can be disabled and enabled. The openstreetmap background map can be selected as StreetMap or Aerial. Note that the map can easily be zoomed in and out.
 
+### Application scope
+#### Generality of App usability
 
-### Input data
-move2_loc
+This App was developed for any taxonomic group. 
 
-### Output data
-move2_loc
+#### Required data properties
+
+The App should work for any kind of (location) data. Specially useful for live feed data.
+
+### Input type
+`move2::move2_loc`
+
+### Output type
+`move2::move2_loc`
 
 ### Artefacts
 none
 
-### Settings
+### Settings 
 Tab "Settings":
 
   - `Date` and `Time`: reference timestamp towards which all analyses are performed. Generally (and by default) this is NOW in UTC, especially if in the field and looking for one or the other animal or wanting to make sure that it is still doing fine. When analyzing older data sets, this parameter can be set to other timestamps so that the data fall into the 5 month time interval possible to explore. In this case make sure to unselect the "NOW" check box. As a reference the last timestamp of the data set is displayed. This chosen timestamp is also noted in the time slider in the sidebar of the Visualization tab.
@@ -46,20 +54,29 @@ Tab "Settings":
 
 Tab "Visualization":
   - `Show Plots and Map`: choose which track should be shown on the plot.
+  
   - `Select property by which to sort the overview table`: choose column by which to sort the table above.
-  - `Choose how to sort the table`: choose if the table should be sortet ascending or descending acording to the column chosen above
+  
+  - `Choose how to sort the table`: choose if the table should be sortet ascending or descending acording to the column chosen above.
+  
   - `Choose start time for map and plots (reference: yyyy-mm-dd HH:MM:SS)`: selection of the start timestamp which has been defined to be at the most 5 months before the reference (selected in Tab Settings).
+  
   - `Select which data attribute to plot`/`Select which second data attribute to plot`: select which data attribute should be shown in the first and the second plot.
+  
   - `Select which daily property to plot`: select which calculated daily property should be shown in the third plot.
 
-### Null or error handling:
-**Setting `Date` and `Time`:** By default the reference time is set to NOW. The present timestamp is extracted in UTC from the MoveApps server system. An error will be displayed if the data set does not contain any locations of the previous 5 months before the selected reference time (default NOW). Check the time span of the data in the overview table in the tab "Visualization" and adjust the date and unckeck the "NOW" box.
+### Changes in output data
+
+The input data remains unchanged.
+
+### Most common errors
+
+
+### Null or error handling
+*Setting `Date` and `Time`:** By default the reference time is set to NOW. The present timestamp is extracted in UTC from the MoveApps server system. An error will be displayed if the data set does not contain any locations of the previous 5 months before the selected reference time (default NOW). Check the time span of the data in the overview table in the tab "Visualization" and adjust the date and unckeck the "NOW" box.
 
 **Setting `Reference position`:** If no location is chosen, for each animal the longitude of the last available position is used as reference for the calculation of average daily distances to a position.
 
 **Setting `Migration buffer in km (last 7 days)`:** The parameter has a explicit default value, so NULL or non-numeric values are not possible and will give an error.
 
 **Setting `Mortality buffer in m (last 7 days)`:** The parameter has a explicit default value, so NULL or non-numeric values are not possible and will give an error.
-
-**Data:** The data are not manipulated in this App, but interactively explored. So that a possible Workflow can be continued after this App, the input data set is returned.
-
