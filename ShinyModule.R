@@ -298,7 +298,9 @@ shinyModule <- function(input, output, session, data){
   })
   
   nsd <- reactive({
-    (distVincentyEllipsoid(st_coordinates(data_sel_id()),st_coordinates(data_sel_id())[1,])/1000)^2
+    if (is.na(input$posLon)){lonZ <- st_coordinates(data_sel_id())[nrow(data_sel_id()),1]} else {lonZ <- input$posLon}
+    if (is.na(input$posLat)){latZ <- st_coordinates(data_sel_id())[nrow(data_sel_id()),2]} else {latZ <- input$posLat}
+    (distVincentyEllipsoid(st_coordinates(data_sel_id()),c(lonZ,latZ))/1000)^2
   })
   nsd2 <- reactive({nsd()})
   

@@ -15,6 +15,7 @@ In the tab "Visualization", on the top an overview table is displayed providing 
 
 In the sidebar one can select the column name according to which the rows in the table shall be ordered (in ascending or descending order). The time slider allows the selection of the start timestamp which has been defined to be at the most 5 months before the reference. All plots and the map react on the time slider. 
 Below the time slider, three drop down selection menus allow to define which data attribute or calculated daily data property shall be shown in the three plots.
+The reference location or in its absence the last location of the track is used as the reference point for the Net Square Displacement and the average daily distance. The displacement per day is calculated for each single calendar day.
 
 The leaflet map on the right side shows the track of the selected animal in the selected time interval (from time slider selected time to reference timestamp). All positions are shown as blue points, connected by light blue lines. The most recent 5 positions are highlighted in red so that the present location of the animal can easily be picked out. The points and lines can be disabled and enabled. The openstreetmap background map can be selected as StreetMap or Aerial. Note that the map can easily be zoomed in and out.
 
