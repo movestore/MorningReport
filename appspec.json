@@ -37,7 +37,7 @@
   "middleInitials": "K",
   "lastName": "Scharf",
   "email": "ascharf@ab.mpg.de",
-  "roles": ["author", "creator"],
+  "roles": ["author", "compiler"],
   "orcid": "0000-0002-3357-8533",
   "affiliation": "Max-Planck-Institute of Animal Behavior",
   "affiliationRor": "https://ror.org/026stee22"
@@ -47,7 +47,7 @@
       "middleInitials": null,
       "lastName": "Kölzsch",
       "email": "akoelzsch@ab.mpg.de",
-      "roles": ["author"],
+      "roles": ["author","creator"],
       "orcid": "0000-0003-0193-1563",
       "affiliation": "Max-Planck-Institute of Animal Behavior",
       "affiliationRor": "https://ror.org/026stee22"
