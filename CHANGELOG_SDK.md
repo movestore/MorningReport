@@ -1,5 +1,14 @@
 # Changelog SDK
 
+## 2025-08 `v3.3.0`
+
+- extract app settings as a JSON file (bookmark.json)
+
+## 2024-03 `v3.2.0`
+
+- introduce app-setting-type `USER_FILE`
+- deprecate app-setting-type `LOCAL_FILE`
+
 ## 2024-02 `v3.1.0`
 
 - introduce `appspec.json` version `1.2`
