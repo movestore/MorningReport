@@ -96,14 +96,16 @@ shinyModuleUserInterface <- function(id, label){
 
 shinyModule <- function(input, output, session, data){
   ns <- session$ns
-  dataObj <- reactive({ data })
+  ## distances, time zones and leaflet need lon/lat (EPSG:4326). Projected data is transformed here, the input data is returned unchanged
+  data_ll <- if (is.na(st_crs(data)) || st_crs(data)==st_crs(4326)) data else st_transform(data, crs=4326)
+  dataObj <- reactive({ data_ll })
   current <- reactiveVal(data)
-  
+
   ## map to choose coords from
   output$testmap <- renderLeaflet({
-    output$ts_lastPos <- renderText({paste0("Reference: last timestamp in data set is ", max(mt_time(data)))})
-      
-    lasLocs <- data%>%group_by(mt_track_id())%>%filter(row_number()==n())
+    output$ts_lastPos <- renderText({paste0("Reference: last timestamp in data set is ", max(mt_time(data_ll)))})
+
+    lasLocs <- data_ll%>%group_by(mt_track_id())%>%filter(row_number()==n())
     
     bounds <- as.vector(st_bbox(lasLocs))
     outl <- leaflet() %>%
@@ -164,8 +166,8 @@ shinyModule <- function(input, output, session, data){
   # table parameters
   overviewObj <- reactive({
     ## get tag names or set to NA
-    if(!any(names(mt_track_data(data))=="tag_local_identifier")){
-      data <- data %>% mutate_track_data(tag_local_identifier=NA)
+    if(!any(names(mt_track_data(data_ll))=="tag_local_identifier")){
+      data_ll <- data_ll %>% mutate_track_data(tag_local_identifier=NA)
     }
     
     getoverview <- function(x){
@@ -210,8 +212,8 @@ shinyModule <- function(input, output, session, data){
     }
 
     ## one row per track. Looping over tracks instead of group_modify(), as group_modify() drops the move2 class
-    overviewTB <- bind_rows(lapply(unique(mt_track_id(data)), function(id){
-      x <- filter(data, mt_track_id(data)==id)
+    overviewTB <- bind_rows(lapply(unique(mt_track_id(data_ll)), function(id){
+      x <- filter(data_ll, mt_track_id(data_ll)==id)
       cbind(getoverview(x),evnt(x))
     }))
 
