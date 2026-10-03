@@ -199,7 +199,7 @@ shinyModule <- function(input, output, session, data){
       in7d <- mt_time(x) <= time_now() & mt_time(x) >= time_now()-(7*24*60*60)
       meanCoo <- colMeans(coo[in7d,,drop=FALSE]) # mean position of last 7 days, NaN if no data
       if(!any(is.na(meanCoo))){
-        dist2mean <- distVincentyEllipsoid(coo,meanCoo)
+        dist2mean <- distVincentyEllipsoid(coo[in7d,,drop=FALSE],meanCoo) # only positions of last 7 days
         if (any(dist2mean>(input$mig7d_dist*1000))){
           df <- data.frame(event="migration")
         } else if (all(dist2mean<input$dead7d_dist)){
