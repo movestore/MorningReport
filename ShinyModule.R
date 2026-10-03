@@ -2,7 +2,6 @@ library('move2')
 library('shiny')
 library('shinyWidgets')
 library('foreach')
-library('maps')
 library('lutz')
 library('geosphere')
 library('DT')
@@ -13,9 +12,6 @@ library("shinyTime")
 library("lubridate")
 library("shinyBS")
 library("shinycssloaders")
-
-#setwd("/root/app/")
-Sys.setenv(tz="UTC")
 
 
 ## improve error msg ob tab2
@@ -32,7 +28,7 @@ shinyModuleUserInterface <- function(id, label){
                         h5("Check the box 'Always use 'NOW'' to use the 'NOW' date and time of each run of a scheduled workflow, date and time will be updated at each run. Unckeck the box if you want to use a fixed date and time."),
                         verbatimTextOutput(ns("ts_lastPos")),
                         column(3,dateInput(ns("date"),"Date:", value = as_date(now("UTC")))),
-                        column(2,timeInput(ns("time"), "Time (24h format):",value= now("UTC"), seconds = FALSE)), 
+                        column(2,shinyTime::timeInput(ns("time"), "Time (24h format):",value= now("UTC"), seconds = FALSE)), 
                         column(2, checkboxInput(ns("alwaysNOW"), "Always use date and time 'NOW'", value=TRUE),style = 'top: 25px;position:relative;',
                         bsTooltip(id=ns("alwaysNOW"), title="Checked: When this app is part of a scheduled workflow, each time the workflow runs, it will use the date and time of moment when the app is executed. Unchecked: the selected date and time will be fixed.", placement = "bottom", trigger = "hover", options = list(container = "body")))
                       ),
@@ -105,16 +101,16 @@ shinyModule <- function(input, output, session, data){
   output$testmap <- renderLeaflet({
     output$ts_lastPos <- renderText({paste0("Reference: last timestamp in data set is ", max(mt_time(data_ll)))})
 
-    lasLocs <- data_ll%>%group_by(mt_track_id())%>%filter(row_number()==n())
-    
+    lasLocs <- data_ll%>%group_by(mt_track_id())%>%dplyr::filter(row_number()==n())
+
     bounds <- as.vector(st_bbox(lasLocs))
     outl <- leaflet() %>%
       fitBounds(bounds[1], bounds[2], bounds[3], bounds[4]) %>%
-      addTiles() %>%
+      addTiles(group = "StreetMap") %>%
       addProviderTiles("Esri.WorldTopoMap",group = "TopoMap") %>%
       addProviderTiles("Esri.WorldImagery", group = "Aerial") %>%
       addCircleMarkers(data = lasLocs, fillOpacity = 0.7, opacity = 0.7, color="red", radius=5,label=unique(mt_track_id(lasLocs)), labelOptions = labelOptions(noHide = T)) %>%
-      addLayersControl(baseGroups = c("StreetMap", "Aerial")) %>%
+      addLayersControl(baseGroups = c("StreetMap", "TopoMap", "Aerial")) %>%
       addLegend(position= "topright", colors=c("red","blue"), 
                 labels=c("last position","selected location") ,opacity = 0.7)  
     outl
@@ -129,7 +125,7 @@ shinyModule <- function(input, output, session, data){
   output$start_timeUI <- renderUI({
     ## when workflow is scheduled,it always takes the time of that moment when it runs if alwaysNOW is checked
     updateDateInput(session, "date", value = if(input$alwaysNOW){as_date(now("UTC"))}else{input$date})
-    updateTimeInput(session, "time", value = if(input$alwaysNOW==TRUE){now("UTC")}else{input$time})
+    shinyTime::updateTimeInput(session, "time", value = if(input$alwaysNOW==TRUE){now("UTC")}else{input$time})
     
     time_now(as.POSIXct(paste0(input$date," ",strftime(input$time, format="%H:%M:%S")),tz="UTC"))
     
@@ -158,28 +154,32 @@ shinyModule <- function(input, output, session, data){
   })
   
   observeEvent(input$set2Na,{
+    posi_lon(NA)
+    posi_lat(NA)
     updateNumericInput(session,"posLat",  value=NA)
     updateNumericInput(session,"posLon",  value=NA)
+    leafletProxy('testmap') %>% removeMarker("mypos")
   })
   ###
   
   # table parameters
   overviewObj <- reactive({
+    req(time_now())
     ## get tag names or set to NA
     if(!any(names(mt_track_data(data_ll))=="tag_local_identifier")){
       data_ll <- data_ll %>% mutate_track_data(tag_local_identifier=NA)
     }
     
     getoverview <- function(x){
-      ## get local timezone for last position (probably posible to code more efficiently...)
+      ## get local timezone for last position. Only one position is used if several share the last timestamp
       timeEi <- max(mt_time(x))
-      coo <- st_coordinates(x %>% filter(mt_time()==max(mt_time())))
-      timeEi_tz <- lutz::tz_lookup_coords(coo[,2],coo[,1], method="accurate")
-      timeEi_offset <- lutz::tz_offset(as.Date(timeEi),timeEi_tz)
-      locl_time <- as.character(timeEi+(timeEi_offset$utc_offset_h*3600))
-      ## tracks of last 24h and last 7 days 
-      trk24h <- x %>% filter(mt_time(x) <= time_now() & mt_time(x) >= time_now()-(24*60*60))
-      trk7d <- x %>% filter(mt_time(x) <= time_now() & mt_time(x) >= time_now()-(7*24*60*60))
+      coo <- st_coordinates(x[which.max(mt_time(x)),])
+      ## NA if the last position has no coordinates or no time zone is found
+      timeEi_tz <- if (any(is.na(coo))) NA else lutz::tz_lookup_coords(lat=coo[,2], lon=coo[,1], method="accurate", warn=FALSE)
+      locl_time <- if (is.na(timeEi_tz)) NA else as.character(timeEi+(lutz::tz_offset(dt=as.Date(timeEi), tz=timeEi_tz)$utc_offset_h*3600))
+      ## tracks of last 24h and last 7 days
+      trk24h <- x %>% dplyr::filter(mt_time(x) <= time_now() & mt_time(x) >= time_now()-(24*60*60))
+      trk7d <- x %>% dplyr::filter(mt_time(x) <= time_now() & mt_time(x) >= time_now()-(7*24*60*60))
 
       df <- data.frame(
         ids=unique(mt_track_id(x)),
@@ -189,8 +189,9 @@ shinyModule <- function(input, output, session, data){
         timeE_local=locl_time,
         posis24h=nrow(trk24h),
         posis7d=nrow(trk7d),
-        displ24h=if(nrow(trk24h)==0){NA}else{paste(round(sum(mt_distance(trk24h),na.rm=T)/1000,digits=3),"km")},
-        displ7d=if(nrow(trk7d)==0){NA}else{paste(round(sum(mt_distance(trk7d),na.rm=T)/1000,digits=3),"km")}
+        ## numeric (km) so that the table sorts correctly
+        displ24h=if(nrow(trk24h)==0){NA}else{round(as.numeric(sum(mt_distance(trk24h),na.rm=T))/1000,digits=3)},
+        displ7d=if(nrow(trk7d)==0){NA}else{round(as.numeric(sum(mt_distance(trk7d),na.rm=T))/1000,digits=3)}
       )
       return(df)
     }
@@ -202,9 +203,10 @@ shinyModule <- function(input, output, session, data){
       meanCoo <- colMeans(coo[in7d,,drop=FALSE]) # mean position of last 7 days, NaN if no data
       if(!any(is.na(meanCoo))){
         dist2mean <- distVincentyEllipsoid(coo[in7d,,drop=FALSE],meanCoo) # only positions of last 7 days
-        if (any(dist2mean>(input$mig7d_dist*1000))){
+        ## isTRUE(): an empty buffer field (NA) skips that check instead of stopping the app
+        if (isTRUE(any(dist2mean>(input$mig7d_dist*1000)))){
           df <- data.frame(event="migration")
-        } else if (all(dist2mean<input$dead7d_dist)){
+        } else if (isTRUE(all(dist2mean<input$dead7d_dist))){
           df <- data.frame(event="dead")
         } else{df <- data.frame(event="-")}
       } else {df <- data.frame(event="no data")}
@@ -213,7 +215,7 @@ shinyModule <- function(input, output, session, data){
 
     ## one row per track. Looping over tracks instead of group_modify(), as group_modify() drops the move2 class
     overviewTB <- bind_rows(lapply(unique(mt_track_id(data_ll)), function(id){
-      x <- filter(data_ll, mt_track_id(data_ll)==id)
+      x <- dplyr::filter(data_ll, mt_track_id(data_ll)==id)
       cbind(getoverview(x),evnt(x))
     }))
 
@@ -241,7 +243,7 @@ shinyModule <- function(input, output, session, data){
   
   overviewObj_named <- reactive({
     overview_named <- overviewObj()
-    names(overview_named) <- c("Show Plots and Map","Animal","Tag","First timestamp UTC","Last timestamp UTC","Last timestamp local tz","N positions last 24h","N positions last 7d","Moved distance last 24h","Moved distance last 7d","Event last 7d") #,"Last timestamp local tz"
+    names(overview_named) <- c("Show Plots and Map","Animal","Tag","First timestamp UTC","Last timestamp UTC","Last timestamp local tz","N positions last 24h","N positions last 7d","Moved distance last 24h (km)","Moved distance last 7d (km)","Event last 7d") #,"Last timestamp local tz"
     overview_named
   })
   
@@ -251,19 +253,29 @@ shinyModule <- function(input, output, session, data){
   })
   
   data_sel_id <- reactive({
-    dataObj() %>% filter(mt_time(dataObj())>input$start_time & mt_time(dataObj())<time_now() & mt_track_id(dataObj())==selID())
+    req(input$start_time, time_now(), selID())
+    dataObj() %>% dplyr::filter(mt_time(dataObj())>input$start_time & mt_time(dataObj())<time_now() & mt_track_id(dataObj())==selID())
   }) #here possible to get no data!
   
+  ## attributes that can be plotted: numeric and not all NA. Geometry, time, track id and other id columns are excluded
+  attrNames <- data_ll %>%
+    st_drop_geometry() %>%
+    as_tibble() %>% # plain tibble, otherwise move2 keeps the time and track id columns
+    select(-any_of(c(mt_time_column(data_ll), mt_track_id_column(data_ll)))) %>%
+    select(where(~ is.numeric(.) && !all(is.na(.)))) %>%
+    select(-ends_with("_id")) %>%
+    names()
+
   updatePickerInput(
     session,
     inputId="attr",
-    choices=c("net square displacement (km2)"="nsd",names(data %>% select(where(~ !(all(is.na(.))))) %>% select(where(~ (all(is.numeric(.))))))) ## removing attributes that are all NA, and selecting those that are numeric
+    choices=c("net square displacement (km2)"="nsd",attrNames)
   )
-  
+
   updatePickerInput(
     session,
     inputId="attr2",
-    choices=c("net square displacement (km2)"="nsd",names(data %>% select(where(~ !(all(is.na(.))))) %>% select(where(~ (all(is.numeric(.))))))) ## removing attributes that are all NA, and selecting those that are numeric
+    choices=c("net square displacement (km2)"="nsd",attrNames)
   )
   
   timeObj <- reactive({
@@ -278,10 +290,17 @@ shinyModule <- function(input, output, session, data){
     data_sel_id() %>% pull(input$attr2)
   })
   
+  ## reference position: selected position if lat and lon are given, otherwise last position of the selected track. isTruthy() also covers inputs not yet rendered (NULL)
+  refPos <- reactive({
+    if (isTruthy(input$posLon) && isTruthy(input$posLat)){
+      c(input$posLon, input$posLat)
+    } else {
+      st_coordinates(data_sel_id())[nrow(data_sel_id()),]
+    }
+  })
+
   nsd <- reactive({
-    if (is.na(input$posLon)){lonZ <- st_coordinates(data_sel_id())[nrow(data_sel_id()),1]} else {lonZ <- input$posLon}
-    if (is.na(input$posLat)){latZ <- st_coordinates(data_sel_id())[nrow(data_sel_id()),2]} else {latZ <- input$posLat}
-    (distVincentyEllipsoid(st_coordinates(data_sel_id()),c(lonZ,latZ))/1000)^2
+    (distVincentyEllipsoid(st_coordinates(data_sel_id()),refPos())/1000)^2
   })
   nsd2 <- reactive({nsd()})
   
@@ -301,12 +320,9 @@ shinyModule <- function(input, output, session, data){
     }})
   
   avgdaily_dist2posi <- reactive({
-    if (is.na(input$posLon)){lonZ <- st_coordinates(data_sel_id())[nrow(data_sel_id()),1]} else {lonZ <- input$posLon}
-    if (is.na(input$posLat)){latZ <- st_coordinates(data_sel_id())[nrow(data_sel_id()),2]} else {latZ <- input$posLat}
-    
     foreach(dayi = daysObj(), .combine=c) %do% {
       ix <- which(as.Date(mt_time(data_sel_id()))==dayi)
-      mean(distVincentyEllipsoid(st_coordinates(data_sel_id()[ix,]),c(lonZ,latZ))/1000,rm.na=TRUE)
+      mean(distVincentyEllipsoid(st_coordinates(data_sel_id()[ix,]),refPos())/1000,na.rm=TRUE)
     }})
   
   ##### table output
@@ -370,7 +386,7 @@ shinyModule <- function(input, output, session, data){
     bounds <- as.vector(st_bbox(data_sel_id()))
     outl <- leaflet() %>%
       fitBounds(bounds[1], bounds[2], bounds[3], bounds[4]) %>%
-      addTiles() %>%
+      addTiles(group = "StreetMap") %>%
       addProviderTiles("Esri.WorldTopoMap",group = "TopoMap") %>%
       addProviderTiles("Esri.WorldImagery", group = "Aerial") %>%
       addPolylines(data =  st_coordinates(data_sel_id()), color ="cyan", group = "lines") %>%
@@ -382,7 +398,7 @@ shinyModule <- function(input, output, session, data){
                   options=scaleBarOptions(maxWidth = 100,
                                           metric = TRUE, imperial = F, updateWhenIdle = TRUE)) %>%
       addLayersControl(
-        baseGroups = c("StreetMap", "Aerial"),
+        baseGroups = c("StreetMap", "TopoMap", "Aerial"),
         overlayGroups = c("lines", "points","last positions"),
         options = layersControlOptions(collapsed = FALSE)
       )
