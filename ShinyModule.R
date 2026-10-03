@@ -163,10 +163,8 @@ shinyModule <- function(input, output, session, data){
   
   # table parameters
   overviewObj <- reactive({
-    trkIDcolnm <- mt_track_id_column(data)
     ## get tag names or set to NA
-    if(any(names(mt_track_data(data))=="tag_local_identifier")){
-    }else{
+    if(!any(names(mt_track_data(data))=="tag_local_identifier")){
       data <- data %>% mutate_track_data(tag_local_identifier=NA)
     }
     
@@ -195,48 +193,29 @@ shinyModule <- function(input, output, session, data){
       return(df)
     }
     
-    overview_tb <- data%>%group_by(mt_track_id()) %>%
-      group_modify(~getoverview(.x))
-    overview_tb <- st_drop_geometry(overview_tb)
-    overviewTB <- rename(overview_tb, {{trkIDcolnm}}:= 1)
-    
-    ## get animal status (probably took a coding detour)
-    data <- dplyr::mutate(data, lon = st_coordinates(data)[,1], lat = st_coordinates(data)[,2])
-    datai7d <-
-      data %>%
-      group_by(mt_track_id()) %>%
-      filter(mt_time() <= time_now() & mt_time() >= time_now()-(7*24*60*60))%>% 
-      reframe(
-        meanlon = mean(lon),
-        meanlat = mean(lat)
-      )
-    
-    datai7d <- rename(datai7d, {{trkIDcolnm}}:= 1)
-    data <- left_join(data,datai7d, by=trkIDcolnm)
-    
+    ## get animal status
     evnt <- function(x){
-      if(!all(is.na(x$meanlat))){
-        if (any(distVincentyEllipsoid(st_coordinates(x),c(unique(x$meanlon),unique(x$meanlat)))>(input$mig7d_dist*1000))){
+      coo <- st_coordinates(x)
+      in7d <- mt_time(x) <= time_now() & mt_time(x) >= time_now()-(7*24*60*60)
+      meanCoo <- colMeans(coo[in7d,,drop=FALSE]) # mean position of last 7 days, NaN if no data
+      if(!any(is.na(meanCoo))){
+        dist2mean <- distVincentyEllipsoid(coo,meanCoo)
+        if (any(dist2mean>(input$mig7d_dist*1000))){
           df <- data.frame(event="migration")
-        } else if (all(distVincentyEllipsoid(st_coordinates(x),c(unique(x$meanlon),unique(x$meanlat)))<input$dead7d_dist)){
+        } else if (all(dist2mean<input$dead7d_dist)){
           df <- data.frame(event="dead")
         } else{df <- data.frame(event="-")}
       } else {df <- data.frame(event="no data")}
       return(df)
     }
-    
-    eventDF <- data %>%
-      group_by(mt_track_id()) %>%
-      group_modify(~evnt(.x))
-    eventDF <- rename(eventDF, {{trkIDcolnm}}:= 1)
-    
-    ## join tables
-    overviewTB <- left_join(overviewTB,eventDF, by=trkIDcolnm)
-    overviewTB <- overviewTB %>% as_tibble() %>% select(-c(1)) # drop trkIDcolnm column used for joining
-    overviewTB <- overviewTB %>% relocate(ids,tags,time0,timeE,timeE_local,posis24h,posis7d,displ24h,displ7d,event)
-    
-    ## "cheating" to achive a quicker fix. converting tibble to data.frame so the code below works. Will update gradually to tidyverse
-    overviewDF <- as.data.frame(overviewTB)
+
+    ## one row per track. Looping over tracks instead of group_modify(), as group_modify() drops the move2 class
+    overviewTB <- bind_rows(lapply(unique(mt_track_id(data)), function(id){
+      x <- filter(data, mt_track_id(data)==id)
+      cbind(getoverview(x),evnt(x))
+    }))
+
+    overviewDF <- overviewTB %>% relocate(ids,tags,time0,timeE,timeE_local,posis24h,posis7d,displ24h,displ7d,event)
     
     IDs <- overviewDF$ids
     
