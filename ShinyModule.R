@@ -82,7 +82,8 @@ shinyModuleUserInterface <- function(id, label){
 shinyModule <- function(input, output, session, data){
   ns <- session$ns
   ## distances, time zones and leaflet need lon/lat (EPSG:4326). Projected data is transformed here, the input data is returned unchanged
-  data_ll <- if (is.na(st_crs(data)) || st_crs(data)==st_crs(4326)) data else st_transform(data, crs=4326)
+  if (is.na(st_crs(data))) stop("The input data has no coordinate reference system (CRS). This App needs to know the projection of the data to calculate distances and draw the maps. Please make sure the data have a valid CRS.")
+  data_ll <- if (st_crs(data)==st_crs(4326)) data else st_transform(data, crs=4326)
   dataObj <- reactive({ data_ll })
   current <- reactiveVal(data)
 
@@ -187,15 +188,17 @@ shinyModule <- function(input, output, session, data){
     
     ## get animal status
     evnt <- function(x){
-      coo <- st_coordinates(x)
       in7d <- mt_time(x) <= time_now() & mt_time(x) >= time_now()-(7*24*60*60)
-      meanCoo <- colMeans(coo[in7d,,drop=FALSE]) # mean position of last 7 days, NaN if no data
-      if(!any(is.na(meanCoo))){
-        dist2mean <- distVincentyEllipsoid(coo[in7d,,drop=FALSE],meanCoo) # only positions of last 7 days
+      coo7d <- st_coordinates(x)[in7d,,drop=FALSE] # only positions of last 7 days
+      coo7d <- coo7d[stats::complete.cases(coo7d),,drop=FALSE]
+      if(nrow(coo7d)>0){
+        ## mean position on the sphere (correct across the 180° meridian). geomean() fails for a single position
+        meanCoo <- if(nrow(coo7d)==1){coo7d[1,]}else{as.vector(geomean(xy=coo7d))}
+        dist2mean <- distVincentyEllipsoid(p1=coo7d, p2=meanCoo)
         ## isTRUE(): an empty buffer field (NA) skips that check instead of stopping the app
         if (isTRUE(any(dist2mean>(input$mig7d_dist*1000)))){
           df <- data.frame(event="migration")
-        } else if (isTRUE(all(dist2mean<input$dead7d_dist))){
+        } else if (nrow(coo7d)>1 && isTRUE(all(dist2mean<input$dead7d_dist))){ # a single position cannot indicate mortality
           df <- data.frame(event="dead")
         } else{df <- data.frame(event="-")}
       } else {df <- data.frame(event="no data")}
@@ -253,24 +256,28 @@ shinyModule <- function(input, output, session, data){
   }) #here possible to get no data!
   
   ## attributes that can be plotted: numeric and not all NA. Geometry, time, track id and other id columns are excluded
+  ## integer64 columns (e.g. checksums) are excluded, they are numeric but plot as meaningless values
   attrNames <- data_ll %>%
     st_drop_geometry() %>%
     as_tibble() %>% # plain tibble, otherwise move2 keeps the time and track id columns
     select(-any_of(c(mt_time_column(data_ll), mt_track_id_column(data_ll)))) %>%
-    select(where(~ is.numeric(.) && !all(is.na(.)))) %>%
+    select(where(~ is.numeric(.) && !inherits(., "integer64") && !all(is.na(.)))) %>%
     select(-ends_with("_id")) %>%
     names()
 
+  ## the choices are only known here, so the selection stored in the bookmark (stored settings) is set again
   updatePickerInput(
     session,
     inputId="attr",
-    choices=c("net square displacement (km2)"="nsd",attrNames)
+    choices=c("net square displacement (km2)"="nsd",attrNames),
+    selected=restoreInput(id=ns("attr"), default="nsd")
   )
 
   updatePickerInput(
     session,
     inputId="attr2",
-    choices=c("net square displacement (km2)"="nsd",attrNames)
+    choices=c("net square displacement (km2)"="nsd",attrNames),
+    selected=restoreInput(id=ns("attr2"), default="nsd")
   )
   
   timeObj <- reactive({
