@@ -249,7 +249,13 @@ shinyModule <- function(input, output, session, data){
   
   # generate reactive parameters for plots and map
   selID <- reactive({
-    if (is.null(input$C)) overviewObj()$ids[1] else input$C
+    if (!is.null(input$C)) return(input$C)
+    ## default: first track in the (sorted) table that has locations between start time and reference time
+    req(input$start_time, time_now())
+    idsSorted <- overviewObj()[o(),"ids"]
+    inWindow <- mt_time(dataObj())>input$start_time & mt_time(dataObj())<time_now()
+    idsData <- unique(as.character(mt_track_id(dataObj())[inWindow]))
+    c(idsSorted[idsSorted %in% idsData], idsSorted)[1] # first track of the table if no track has data
   })
   
   data_sel_id <- reactive({
@@ -332,10 +338,11 @@ shinyModule <- function(input, output, session, data){
   )
   
   ##### plots
-  ## HERE: TRY AND ADAPT ERROR MESSAGES IF THERE ARE NO DATA SELECTED
+  ## message shown in plots and map if the selected track has no locations in the selected time window
+  noDataMsg <- "The selected track has no locations between the selected start time and the reference time. Select another track, move the start time slider or adapt the reference time in the 'Settings' tab."
+
   output$attr_time <- renderPlot({
-    # if(nrow(isolate(data_sel_id())==0)){output$errortext <- renderPrint({"ERROR: Your data set does not contain any locations of the previous 5 months before your selected reference time (default NOW). Please adapt your reference time in the 'Settings' tab"})}
-    
+    validate(need(nrow(data_sel_id())>0, noDataMsg))
     if (input$attr=="nsd"){
       plot(timeObj(),nsd(),type="b",
            xlim=c(min(timeObj(),na.rm=TRUE),max(timeObj(),na.rm=TRUE)),
@@ -350,6 +357,7 @@ shinyModule <- function(input, output, session, data){
   })
   
   output$attr2_time <- renderPlot({
+    validate(need(nrow(data_sel_id())>0, noDataMsg))
     if(input$attr2=="nsd"){
       plot(timeObj(),nsd(),type="b",
            xlim=c(min(timeObj(),na.rm=TRUE),max(timeObj(),na.rm=TRUE)),
@@ -364,6 +372,7 @@ shinyModule <- function(input, output, session, data){
   })
   
   output$prop_time <- renderPlot({
+    validate(need(nrow(data_sel_id())>0, noDataMsg))
     if (input$prop=="n_day"){
       plot(daysObj(),n_day(),type="h",
            xlim=c(min(daysObj(),na.rm=TRUE),max(daysObj(),na.rm=TRUE)),
@@ -383,6 +392,7 @@ shinyModule <- function(input, output, session, data){
   })
   
   output$leafmap <- renderLeaflet({
+    validate(need(nrow(data_sel_id())>0, noDataMsg))
     bounds <- as.vector(st_bbox(data_sel_id()))
     outl <- leaflet() %>%
       fitBounds(bounds[1], bounds[2], bounds[3], bounds[4]) %>%
