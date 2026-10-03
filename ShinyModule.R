@@ -14,11 +14,6 @@ library("shinyBS")
 library("shinycssloaders")
 
 
-## improve error msg ob tab2
-# - if tag has no data "now". work in progress
-
-
-
 shinyModuleUserInterface <- function(id, label){
   ns <- NS(id)
   navbarPage("Morning Report",
@@ -69,14 +64,8 @@ shinyModuleUserInterface <- function(id, label){
                                       choices = c("number of positions per day" = "n_day", "displacement per day (km)" = "displ_day", "average daily distance to selected position (km)" = "avgdaily_dist2posi")),
                           width=2),
                         mainPanel(
-                          tags$style(type="text/css", 
-                                     ".shiny-output-error { visibility: hidden; }",
-                                     ".shiny-output-error:before { visibility: hidden; }"
-                          ), # hidding the red R error messages
-                          #leafletOutput(ns("leafmap"),height="500px"),
                           fluidRow(
                             column(width=6,
-                                   # verbatimTextOutput(ns("errortext")),
                                    plotOutput(ns("attr_time"),height="220px"),
                                    plotOutput(ns("attr2_time"),height="220px"),
                                    plotOutput(ns("prop_time"),height="220px")
@@ -349,6 +338,7 @@ shinyModule <- function(input, output, session, data){
            ylim=c(min(nsd(),na.rm=TRUE),max(nsd(),na.rm=TRUE)),
            xlab="time",ylab="nsd (km2)",col=2,lwd=2)
     } else{
+      validate(need(any(!is.na(attrObj())), paste0("The attribute '",input$attr,"' has no values for the selected track in the selected time window.")))
       plot(timeObj(),attrObj(),type="b",
            xlim=c(min(timeObj(),na.rm=TRUE),max(timeObj(),na.rm=TRUE)),
            ylim=c(min(attrObj(),na.rm=TRUE),max(attrObj(),na.rm=TRUE)),
@@ -364,6 +354,7 @@ shinyModule <- function(input, output, session, data){
            ylim=c(min(nsd(),na.rm=TRUE),max(nsd(),na.rm=TRUE)),
            xlab="time",ylab="nsd (km2)",col=2,lwd=2)
     }else{
+      validate(need(any(!is.na(attr2Obj())), paste0("The attribute '",input$attr2,"' has no values for the selected track in the selected time window.")))
       plot(timeObj(),attr2Obj(),type="b",
            xlim=c(min(timeObj(),na.rm=TRUE),max(timeObj(),na.rm=TRUE)),
            ylim=c(min(attr2Obj(),na.rm=TRUE),max(attr2Obj(),na.rm=TRUE)),
