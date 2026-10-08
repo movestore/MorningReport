@@ -16,13 +16,13 @@ library("shinycssloaders")
 shinyModuleUserInterface <- function(id, label){
   ns <- NS(id)
   navbarPage("Morning Report",
-             tabPanel("Settings", 
+             tabPanel("Settings",
                       fluidRow(
                         h5("1. Define your reference date and time, i.e. the date and time from which you want to look back at your data. If your tags are still functioning, this is typically ‘NOW’ in UTC. If you don’t change the date and time, ‘NOW’ will be used by default."),
                         h5("Check the box 'Always use 'NOW'' to use the 'NOW' date and time of each run of a scheduled workflow, date and time will be updated at each run. Uncheck the box if you want to use a fixed date and time."),
                         verbatimTextOutput(ns("ts_lastPos")),
                         column(3,dateInput(ns("date"),"Date:", value = as_date(now("UTC")))),
-                        column(2,shinyTime::timeInput(ns("time"), "Time (24h format):",value= now("UTC"), seconds = TRUE)), 
+                        column(2,shinyTime::timeInput(ns("time"), "Time (24h format):",value= now("UTC"), seconds = FALSE)), 
                         column(2, checkboxInput(ns("alwaysNOW"), "Always use date and time 'NOW'", value=TRUE),style = 'top: 25px;position:relative;',
                         bsTooltip(id=ns("alwaysNOW"), title="Checked: When this app is part of a scheduled workflow, each time the workflow runs, it will use the date and time of moment when the app is executed. Unchecked: the selected date and time will be fixed.", placement = "bottom", trigger = "hover", options = list(container = "body")))
                       ),
@@ -50,8 +50,13 @@ shinyModuleUserInterface <- function(id, label){
                           radioButtons(inputId = ns("sort_direc"),
                                        label = "Choose how to sort the table",
                                        choices = c("ascending","descending")),
-                          uiOutput(ns("start_timeUI")),
-                          
+                          ## time window as a duration (days before the reference time), so that stored settings keep the same window when the reference time changes (e.g. "NOW" in a scheduled workflow)
+                          sliderInput(inputId = ns("days_back"),
+                                      label = "Choose time window for map and plots (days before the reference time)",
+                                      min = 1, max = 140, value = 140, step = 1, ticks = FALSE,
+                                      animate = animationOptions(interval = 2000)),
+                          textOutput(ns("start_timeTxt")),
+
                           pickerInput(inputId =ns("attr"),
                                       label = "Select which data attribute to plot",
                                       choices = c("net square displacement (km2)"="nsd")),
@@ -137,14 +142,13 @@ shinyModule <- function(input, output, session, data){
     as.POSIXct(paste(format(input$date, format="%Y-%m-%d"), format(input$time, format="%H:%M:%S")), tz="UTC")
   })
 
-  output$start_timeUI <- renderUI({
-    req(time_now())
-    sliderInput(ns("start_time"),
-                paste0("Choose start time for map and plots (reference: ",fmtTime(time_now())," UTC)"),
-                min = time_now() - base::as.difftime(20,units="weeks"),
-                max = time_now(),
-                value = time_now() - base::as.difftime(20,units="weeks"),
-                timeFormat = "%Y-%m-%d %H:%M:%S", timezone = "+0000", ticks = F, animate = animationOptions(interval = 2000))
+  ## start of the time window for map and plots: reference time minus the selected number of days
+  start_time <- reactive({
+    req(time_now(), input$days_back)
+    time_now() - input$days_back*24*60*60
+  })
+  output$start_timeTxt <- renderText({
+    paste0("From ", fmtTime(start_time()), " to ", fmtTime(time_now()), " (UTC)")
   })
   
   ## selected position is saved in bookmarks, and can be deleted if last position wants to be used
@@ -172,87 +176,95 @@ shinyModule <- function(input, output, session, data){
   ###
   
   # table parameters
-  overviewObj <- reactive({
+  ## one move2 object per track. Looping over tracks instead of group_modify(), as group_modify() drops the move2 class
+  trackList <- lapply(unique(mt_track_id(data_ll)), function(id) dplyr::filter(data_ll, mt_track_id(data_ll)==id))
+  
+  ## properties of each track that do not depend on any setting. Computed only once, as the time zone lookup is slow
+  trackInfo <- bind_rows(lapply(trackList, function(x){
+    ## get local timezone for last position. Only one position is used if several share the last timestamp
+    timeEi <- max(mt_time(x))
+    coo <- st_coordinates(x[which.max(mt_time(x)),])
+    ## NA if the last position has no coordinates or no time zone is found
+    timeEi_tz <- if (any(is.na(coo))) NA else lutz::tz_lookup_coords(lat=coo[,2], lon=coo[,1], method="accurate", warn=FALSE)
+    ## local time with the UTC offset of that moment (incl. daylight saving time) and the time zone abbreviation
+    locl_time <- if (is.na(timeEi_tz)) NA else format(with_tz(timeEi, tzone=timeEi_tz), format="%Y-%m-%d %H:%M:%S %Z")
+    data.frame(
+      ids=unique(mt_track_id(x)),
+      ## tag names, or NA if not in the data
+      tags=if ("tag_local_identifier" %in% names(mt_track_data(x))) mt_track_data(x)$tag_local_identifier else NA,
+      time0=fmtTime(min(mt_time(x))),
+      timeE=fmtTime(timeEi),
+      timeE_local=locl_time
+    )
+  }))
+  
+  ## number of positions and moved distance of the last 24h and 7 days. Only depend on the reference time
+  windowObj <- reactive({
     req(time_now())
-    ## get tag names or set to NA
-    if(!any(names(mt_track_data(data_ll))=="tag_local_identifier")){
-      data_ll <- data_ll %>% mutate_track_data(tag_local_identifier=NA)
-    }
-    
-    getoverview <- function(x){
-      ## get local timezone for last position. Only one position is used if several share the last timestamp
-      timeEi <- max(mt_time(x))
-      coo <- st_coordinates(x[which.max(mt_time(x)),])
-      ## NA if the last position has no coordinates or no time zone is found
-      timeEi_tz <- if (any(is.na(coo))) NA else lutz::tz_lookup_coords(lat=coo[,2], lon=coo[,1], method="accurate", warn=FALSE)
-      ## local time with the UTC offset of that moment (incl. daylight saving time) and the time zone abbreviation
-      locl_time <- if (is.na(timeEi_tz)) NA else format(with_tz(timeEi, tzone=timeEi_tz), format="%Y-%m-%d %H:%M:%S %Z")
-      ## tracks of last 24h and last 7 days
+    bind_rows(lapply(trackList, function(x){
       trk24h <- x %>% dplyr::filter(mt_time(x) <= time_now() & mt_time(x) >= time_now()-(24*60*60))
       trk7d <- x %>% dplyr::filter(mt_time(x) <= time_now() & mt_time(x) >= time_now()-(7*24*60*60))
-
-      df <- data.frame(
-        ids=unique(mt_track_id(x)),
-        tags=mt_track_data(x)$tag_local_identifier,
-        time0=fmtTime(min(mt_time(x))),
-        timeE=fmtTime(timeEi),
-        timeE_local=locl_time,
+      data.frame(
         posis24h=nrow(trk24h),
         posis7d=nrow(trk7d),
         ## numeric (km) so that the table sorts correctly
         displ24h=if(nrow(trk24h)==0){NA}else{round(as.numeric(sum(mt_distance(trk24h),na.rm=T))/1000,digits=3)},
         displ7d=if(nrow(trk7d)==0){NA}else{round(as.numeric(sum(mt_distance(trk7d),na.rm=T))/1000,digits=3)}
       )
-      return(df)
-    }
-    
-    ## get animal status
-    evnt <- function(x){
+    }))
+  })
+  
+  ## distances of the positions of the last 7 days to their mean position. Only depend on the reference time, so changing a buffer does not recalculate them
+  dist2meanObj <- reactive({
+    req(time_now())
+    lapply(trackList, function(x){
       in7d <- mt_time(x) <= time_now() & mt_time(x) >= time_now()-(7*24*60*60)
       coo7d <- st_coordinates(x)[in7d,,drop=FALSE] # only positions of last 7 days
       coo7d <- coo7d[stats::complete.cases(coo7d),,drop=FALSE]
-      if(nrow(coo7d)>0){
-        ## mean position on the sphere (correct across the 180° meridian). geomean() fails for a single position
-        meanCoo <- if(nrow(coo7d)==1){coo7d[1,]}else{as.vector(geomean(xy=coo7d))}
-        dist2mean <- distVincentyEllipsoid(p1=coo7d, p2=meanCoo)
-        ## isTRUE(): an empty buffer field (NA) skips that check instead of stopping the app
-        if (isTRUE(any(dist2mean>(input$mig7d_dist*1000)))){
-          df <- data.frame(event="migration")
-        } else if (nrow(coo7d)>1 && isTRUE(all(dist2mean<input$dead7d_dist))){ # a single position cannot indicate mortality
-          df <- data.frame(event="dead")
-        } else{df <- data.frame(event="-")}
-      } else {df <- data.frame(event="no data")}
-      return(df)
-    }
-
-    ## one row per track. Looping over tracks instead of group_modify(), as group_modify() drops the move2 class
-    overviewTB <- bind_rows(lapply(unique(mt_track_id(data_ll)), function(id){
-      x <- dplyr::filter(data_ll, mt_track_id(data_ll)==id)
-      cbind(getoverview(x),evnt(x))
+      if(nrow(coo7d)==0) return(NULL) # no data in the last 7 days
+      ## mean position on the sphere (correct across the 180° meridian). geomean() fails for a single position
+      meanCoo <- if(nrow(coo7d)==1){coo7d[1,]}else{as.vector(geomean(xy=coo7d))}
+      distVincentyEllipsoid(p1=coo7d, p2=meanCoo)
+    })
+  })
+  
+  ## animal status of the last 7 days. Only compares the distances with the buffers
+  eventObj <- reactive({
+    bind_rows(lapply(dist2meanObj(), function(dist2mean){
+      if(is.null(dist2mean)){
+        data.frame(event="no data")
+      } else if (isTRUE(any(dist2mean>(input$mig7d_dist*1000)))){ # isTRUE(): an empty buffer field (NA) skips that check instead of stopping the app
+        data.frame(event="migration")
+      } else if (length(dist2mean)>1 && isTRUE(all(dist2mean<input$dead7d_dist))){ # a single position cannot indicate mortality
+        data.frame(event="dead")
+      } else{data.frame(event="-")}
     }))
-
-    overviewTB %>% relocate(ids,tags,time0,timeE,timeE_local,posis24h,posis7d,displ24h,displ7d,event)
+  })
+  
+  overviewObj <- reactive({
+    cbind(trackInfo, windowObj(), eventObj())
   })
   
   ## row order of the table. Timestamps are text in the format "YYYY-mm-dd HH:MM:SS" (UTC), which sorts correctly
+  ## the sort columns are all in trackInfo and windowObj(). Not using the events, so that changing a buffer does not recalculate the plots and map
   o <- reactive({
-    order(overviewObj()[,input$sort_table], decreasing=(input$sort_direc=="descending"))
+    order(cbind(trackInfo, windowObj())[,input$sort_table], decreasing=(input$sort_direc=="descending"))
   })
   
   # generate reactive parameters for plots and map
   selID <- reactive({
     if (!is.null(input$C)) return(input$C)
     ## default: first track in the (sorted) table that has locations between start time and reference time
-    req(input$start_time, time_now())
-    idsSorted <- overviewObj()[o(),"ids"]
-    inWindow <- mt_time(data_ll)>=input$start_time & mt_time(data_ll)<=time_now()
+    req(start_time(), time_now())
+    idsSorted <- trackInfo[o(),"ids"]
+    inWindow <- mt_time(data_ll)>=start_time() & mt_time(data_ll)<=time_now()
     idsData <- unique(as.character(mt_track_id(data_ll)[inWindow]))
     c(idsSorted[idsSorted %in% idsData], idsSorted)[1] # first track of the table if no track has data
   })
   
   data_sel_id <- reactive({
-    req(input$start_time, time_now(), selID())
-    data_ll %>% dplyr::filter(mt_time(data_ll)>=input$start_time & mt_time(data_ll)<=time_now() & mt_track_id(data_ll)==selID())
+    req(start_time(), time_now(), selID())
+    data_ll %>% dplyr::filter(mt_time(data_ll)>=start_time() & mt_time(data_ll)<=time_now() & mt_track_id(data_ll)==selID())
   }) #here possible to get no data!
   
   ## attributes that can be plotted: numeric and not all NA. Geometry, time, track id and other id columns are excluded
@@ -355,7 +367,7 @@ shinyModule <- function(input, output, session, data){
   
   ##### plots
   ## message shown in plots and map if the selected track has no locations in the selected time window
-  noDataMsg <- "The selected track has no locations between the selected start time and the reference time. Select another track, move the start time slider or adapt the reference time in the 'Settings' tab."
+  noDataMsg <- "The selected track has no locations in the selected time window. Select another track, increase the time window with the slider or adapt the reference time in the 'Settings' tab."
 
   output$attr_time <- renderPlot({
     validate(need(nrow(data_sel_id())>0, noDataMsg))

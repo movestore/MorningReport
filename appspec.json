@@ -5,18 +5,18 @@
     "R": [
       {"name": "move2"},
       {"name": "shiny"},
-	    {"name": "shinyWidgets"},
-	    {"name": "htmltools"},
-	    {"name": "geosphere"},
-	    {"name": "DT"},
-	    {"name": "dplyr"},
+      {"name": "shinyWidgets"},
+      {"name": "htmltools"},
+      {"name": "geosphere"},
+      {"name": "DT"},
+      {"name": "dplyr"},
       {"name": "sf"},
-	    {"name": "leaflet"},
-	    {"name": "lutz"},
-	    {"name":"shinyTime"},
-	    {"name":"lubridate"},
-	    {"name":"shinyBS"},
-	    {"name":"shinycssloaders"}
+      {"name": "leaflet"},
+      {"name": "lutz"},
+      {"name": "shinyTime"},
+      {"name": "lubridate"},
+      {"name": "shinyBS"},
+      {"name": "shinycssloaders"}
     ]
   },
   "license": {
