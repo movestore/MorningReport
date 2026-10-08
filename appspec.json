@@ -6,7 +6,7 @@
       {"name": "move2"},
       {"name": "shiny"},
 	    {"name": "shinyWidgets"},
-	    {"name": "foreach"},
+	    {"name": "htmltools"},
 	    {"name": "geosphere"},
 	    {"name": "DT"},
 	    {"name": "dplyr"},

@@ -1,7 +1,6 @@
 library('move2')
 library('shiny')
 library('shinyWidgets')
-library('foreach')
 library('lutz')
 library('geosphere')
 library('DT')
@@ -20,10 +19,10 @@ shinyModuleUserInterface <- function(id, label){
              tabPanel("Settings", 
                       fluidRow(
                         h5("1. Define your reference date and time, i.e. the date and time from which you want to look back at your data. If your tags are still functioning, this is typically ‘NOW’ in UTC. If you don’t change the date and time, ‘NOW’ will be used by default."),
-                        h5("Check the box 'Always use 'NOW'' to use the 'NOW' date and time of each run of a scheduled workflow, date and time will be updated at each run. Unckeck the box if you want to use a fixed date and time."),
+                        h5("Check the box 'Always use 'NOW'' to use the 'NOW' date and time of each run of a scheduled workflow, date and time will be updated at each run. Uncheck the box if you want to use a fixed date and time."),
                         verbatimTextOutput(ns("ts_lastPos")),
                         column(3,dateInput(ns("date"),"Date:", value = as_date(now("UTC")))),
-                        column(2,shinyTime::timeInput(ns("time"), "Time (24h format):",value= now("UTC"), seconds = FALSE)), 
+                        column(2,shinyTime::timeInput(ns("time"), "Time (24h format):",value= now("UTC"), seconds = TRUE)), 
                         column(2, checkboxInput(ns("alwaysNOW"), "Always use date and time 'NOW'", value=TRUE),style = 'top: 25px;position:relative;',
                         bsTooltip(id=ns("alwaysNOW"), title="Checked: When this app is part of a scheduled workflow, each time the workflow runs, it will use the date and time of moment when the app is executed. Unchecked: the selected date and time will be fixed.", placement = "bottom", trigger = "hover", options = list(container = "body")))
                       ),
@@ -79,23 +78,34 @@ shinyModuleUserInterface <- function(id, label){
 }
 
 
+
 shinyModule <- function(input, output, session, data){
   ns <- session$ns
   ## distances, time zones and leaflet need lon/lat (EPSG:4326). Projected data is transformed here, the input data is returned unchanged
   if (is.na(st_crs(data))) stop("The input data has no coordinate reference system (CRS). This App needs to know the projection of the data to calculate distances and draw the maps. Please make sure the data have a valid CRS.")
   data_ll <- if (st_crs(data)==st_crs(4326)) data else st_transform(data, crs=4326)
-  dataObj <- reactive({ data_ll })
-  current <- reactiveVal(data)
+
+  ## timestamps as text always with time (as.character() drops the time at midnight). In UTC, so they also sort correctly as text
+  fmtTime <- function(x) format(x, format="%Y-%m-%d %H:%M:%S", tz="UTC")
+
+  ## zoom the map to the bounding box, or to a fixed zoom level if all positions are at the same place (fitBounds() would zoom in completely)
+  setMapView <- function(map, bounds){
+    if (bounds[1]==bounds[3] && bounds[2]==bounds[4]){
+      setView(map, lng=bounds[1], lat=bounds[2], zoom=12)
+    } else {
+      fitBounds(map, lng1=bounds[1], lat1=bounds[2], lng2=bounds[3], lat2=bounds[4])
+    }
+  }
+
+  output$ts_lastPos <- renderText({paste0("Reference: last timestamp in data set is ", fmtTime(max(mt_time(data_ll))), " UTC")})
 
   ## map to choose coords from
   output$testmap <- renderLeaflet({
-    output$ts_lastPos <- renderText({paste0("Reference: last timestamp in data set is ", max(mt_time(data_ll)))})
-
     lasLocs <- data_ll%>%group_by(mt_track_id())%>%dplyr::filter(row_number()==n())
 
     bounds <- as.vector(st_bbox(lasLocs))
     outl <- leaflet() %>%
-      fitBounds(bounds[1], bounds[2], bounds[3], bounds[4]) %>%
+      setMapView(bounds=bounds) %>%
       addTiles(group = "StreetMap") %>%
       addProviderTiles("Esri.WorldTopoMap",group = "TopoMap") %>%
       addProviderTiles("Esri.WorldImagery", group = "Aerial") %>%
@@ -111,24 +121,33 @@ shinyModule <- function(input, output, session, data){
     leafletProxy('testmap')%>% removeMarker("mypos")%>%addMarkers(lng = click()$lng, lat = click()$lat, layerId="mypos",label=paste0("Lat: ", round(click()$lat,4)," Lon: ",round(click()$lng,4)),labelOptions = labelOptions(noHide = T))
   })
   ##
-  time_now <- reactiveVal()
+  ## reference time NOW: the moment the App is run, fixed during the session
+  startTime <- now(tzone="UTC")
+  ## when "always use NOW" is checked (e.g. in a scheduled workflow), the date and time fields show the moment the App is run
+  observeEvent(input$alwaysNOW, {
+    if (isTRUE(input$alwaysNOW)){
+      updateDateInput(session, inputId="date", value=as_date(startTime))
+      shinyTime::updateTimeInput(session, inputId="time", value=startTime)
+    }
+  })
+  ## reference time in UTC. format() keeps the time as typed in the field (strftime() would convert it to the time zone of the server)
+  time_now <- reactive({
+    if (isTRUE(input$alwaysNOW)) return(startTime)
+    req(input$date, input$time) # date or time field empty
+    as.POSIXct(paste(format(input$date, format="%Y-%m-%d"), format(input$time, format="%H:%M:%S")), tz="UTC")
+  })
+
   output$start_timeUI <- renderUI({
-    ## when workflow is scheduled,it always takes the time of that moment when it runs if alwaysNOW is checked
-    updateDateInput(session, "date", value = if(input$alwaysNOW){as_date(now("UTC"))}else{input$date})
-    shinyTime::updateTimeInput(session, "time", value = if(input$alwaysNOW==TRUE){now("UTC")}else{input$time})
-    
-    time_now(as.POSIXct(paste0(input$date," ",strftime(input$time, format="%H:%M:%S")),tz="UTC"))
-    
+    req(time_now())
     sliderInput(ns("start_time"),
-                paste0("Choose start time for map and plots (reference: ",input$date," ", strftime(input$time, format="%H:%M:%S"),")"),
-                min = time_now() - as.difftime(20,units="weeks"),
+                paste0("Choose start time for map and plots (reference: ",fmtTime(time_now())," UTC)"),
+                min = time_now() - base::as.difftime(20,units="weeks"),
                 max = time_now(),
-                value = time_now() - as.difftime(20,units="weeks"),
-                # step=1,
-                timeFormat = "%Y-%m-%d %H:%M:%S", ticks = F, animate = animationOptions(interval = 2000))
+                value = time_now() - base::as.difftime(20,units="weeks"),
+                timeFormat = "%Y-%m-%d %H:%M:%S", timezone = "+0000", ticks = F, animate = animationOptions(interval = 2000))
   })
   
-  ## selected position is saved in bookmarks, and cab be deleted if last position wants to be used
+  ## selected position is saved in bookmarks, and can be deleted if last position wants to be used
   posi_lon <- reactiveVal(value=NA)
   posi_lat <- reactiveVal(value=NA)
   observeEvent(input$testmap_click,{
@@ -137,10 +156,10 @@ shinyModule <- function(input, output, session, data){
   })
   
   output$posLat_UI <- renderUI({
-    numericInput(ns("posLat"), "Lat", value=posi_lat())
+    numericInput(ns("posLat"), label="Lat", value=posi_lat(), min=-90, max=90)
   })
   output$posLon_UI <- renderUI({
-    numericInput(ns("posLon"), "Lon", value=posi_lon())
+    numericInput(ns("posLon"), label="Lon", value=posi_lon(), min=-180, max=180)
   })
   
   observeEvent(input$set2Na,{
@@ -166,7 +185,8 @@ shinyModule <- function(input, output, session, data){
       coo <- st_coordinates(x[which.max(mt_time(x)),])
       ## NA if the last position has no coordinates or no time zone is found
       timeEi_tz <- if (any(is.na(coo))) NA else lutz::tz_lookup_coords(lat=coo[,2], lon=coo[,1], method="accurate", warn=FALSE)
-      locl_time <- if (is.na(timeEi_tz)) NA else as.character(timeEi+(lutz::tz_offset(dt=as.Date(timeEi), tz=timeEi_tz)$utc_offset_h*3600))
+      ## local time with the UTC offset of that moment (incl. daylight saving time) and the time zone abbreviation
+      locl_time <- if (is.na(timeEi_tz)) NA else format(with_tz(timeEi, tzone=timeEi_tz), format="%Y-%m-%d %H:%M:%S %Z")
       ## tracks of last 24h and last 7 days
       trk24h <- x %>% dplyr::filter(mt_time(x) <= time_now() & mt_time(x) >= time_now()-(24*60*60))
       trk7d <- x %>% dplyr::filter(mt_time(x) <= time_now() & mt_time(x) >= time_now()-(7*24*60*60))
@@ -174,8 +194,8 @@ shinyModule <- function(input, output, session, data){
       df <- data.frame(
         ids=unique(mt_track_id(x)),
         tags=mt_track_data(x)$tag_local_identifier,
-        time0=as.character(min(mt_time(x))),
-        timeE=as.character(max(mt_time(x))),
+        time0=fmtTime(min(mt_time(x))),
+        timeE=fmtTime(timeEi),
         timeE_local=locl_time,
         posis24h=nrow(trk24h),
         posis7d=nrow(trk7d),
@@ -211,32 +231,12 @@ shinyModule <- function(input, output, session, data){
       cbind(getoverview(x),evnt(x))
     }))
 
-    overviewDF <- overviewTB %>% relocate(ids,tags,time0,timeE,timeE_local,posis24h,posis7d,displ24h,displ7d,event)
-    
-    IDs <- overviewDF$ids
-    
-    N <- ncol(overviewDF)
-    for (i in seq_len(nrow(overviewDF))){
-      overviewDF[i,N+1] <- sprintf(
-        '<input type="radio" name="%s" value="%s"/>',
-        session$ns("C"),IDs[i]
-      )
-      names(overviewDF)[N+1] <- "show"
-    }
-    overviewDF[,c(N+1,1:N)]
+    overviewTB %>% relocate(ids,tags,time0,timeE,timeE_local,posis24h,posis7d,displ24h,displ7d,event)
   })
   
-  
-  #### USE ARRANGE
+  ## row order of the table. Timestamps are text in the format "YYYY-mm-dd HH:MM:SS" (UTC), which sorts correctly
   o <- reactive({
-    if (input$sort_table %in% c("time0","timeE")) sort_tab <- as.POSIXct(overviewObj()[,input$sort_table]) else sort_tab <- overviewObj()[,input$sort_table] #,"timeE_local"
-    if (input$sort_direc=="descending") order(sort_tab, decreasing = TRUE) else if(input$sort_direc=="ascending") order(sort_tab, decreasing = FALSE) else seq(along=sort_tab)
-  })
-  
-  overviewObj_named <- reactive({
-    overview_named <- overviewObj()
-    names(overview_named) <- c("Show Plots and Map","Animal","Tag","First timestamp UTC","Last timestamp UTC","Last timestamp local tz","N positions last 24h","N positions last 7d","Moved distance last 24h (km)","Moved distance last 7d (km)","Event last 7d") #,"Last timestamp local tz"
-    overview_named
+    order(overviewObj()[,input$sort_table], decreasing=(input$sort_direc=="descending"))
   })
   
   # generate reactive parameters for plots and map
@@ -245,14 +245,14 @@ shinyModule <- function(input, output, session, data){
     ## default: first track in the (sorted) table that has locations between start time and reference time
     req(input$start_time, time_now())
     idsSorted <- overviewObj()[o(),"ids"]
-    inWindow <- mt_time(dataObj())>input$start_time & mt_time(dataObj())<time_now()
-    idsData <- unique(as.character(mt_track_id(dataObj())[inWindow]))
+    inWindow <- mt_time(data_ll)>=input$start_time & mt_time(data_ll)<=time_now()
+    idsData <- unique(as.character(mt_track_id(data_ll)[inWindow]))
     c(idsSorted[idsSorted %in% idsData], idsSorted)[1] # first track of the table if no track has data
   })
   
   data_sel_id <- reactive({
     req(input$start_time, time_now(), selID())
-    dataObj() %>% dplyr::filter(mt_time(dataObj())>input$start_time & mt_time(dataObj())<time_now() & mt_track_id(dataObj())==selID())
+    data_ll %>% dplyr::filter(mt_time(data_ll)>=input$start_time & mt_time(data_ll)<=time_now() & mt_track_id(data_ll)==selID())
   }) #here possible to get no data!
   
   ## attributes that can be plotted: numeric and not all NA. Geometry, time, track id and other id columns are excluded
@@ -284,17 +284,22 @@ shinyModule <- function(input, output, session, data){
     mt_time(data_sel_id())
   })
   
+  ## message if a selected attribute (e.g. from stored settings) is not in the data
+  noAttrMsg <- function(attr) paste0("The attribute '",attr,"' does not exist in the data. Please select another attribute.")
   attrObj <- reactive({
+    validate(need(input$attr %in% attrNames, noAttrMsg(input$attr)))
     data_sel_id() %>% pull(input$attr) # get the vector out of a tbl column
   })
   
   attr2Obj <- reactive({
+    validate(need(input$attr2 %in% attrNames, noAttrMsg(input$attr2)))
     data_sel_id() %>% pull(input$attr2)
   })
   
   ## reference position: selected position if lat and lon are given, otherwise last position of the selected track. isTruthy() also covers inputs not yet rendered (NULL)
   refPos <- reactive({
     if (isTruthy(input$posLon) && isTruthy(input$posLat)){
+      validate(need(abs(input$posLat)<=90 && abs(input$posLon)<=180, "The reference position (Lat/Lon in the 'Settings' tab) is not valid: latitude must be between -90 and 90, longitude between -180 and 180."))
       c(input$posLon, input$posLat)
     } else {
       st_coordinates(data_sel_id())[nrow(data_sel_id()),]
@@ -302,35 +307,50 @@ shinyModule <- function(input, output, session, data){
   })
 
   nsd <- reactive({
-    (distVincentyEllipsoid(st_coordinates(data_sel_id()),refPos())/1000)^2
+    (distVincentyEllipsoid(p1=st_coordinates(data_sel_id()), p2=refPos())/1000)^2
   })
-  nsd2 <- reactive({nsd()})
   
+  ## calendar day (UTC) of each position of the selected track
+  dayOfPos <- reactive({
+    as.Date(mt_time(data_sel_id()), tz="UTC")
+  })
   daysObj <- reactive({
-    unique(as.Date(mt_time(data_sel_id())))
+    unique(dayOfPos())
   })
   
   n_day <- reactive({
-    foreach(dayi = daysObj(), .combine=c) %do% {
-      length(which(as.Date(mt_time(data_sel_id()))==dayi))
-    }})
+    vapply(seq_along(daysObj()), function(i) sum(dayOfPos()==daysObj()[i]), numeric(1))
+  })
   displ_day <- reactive({
-    foreach(dayi = daysObj(), .combine=c) %do% {
-      ix <- which(as.Date(mt_time(data_sel_id()))==dayi)
+    coo <- st_coordinates(data_sel_id())
+    vapply(seq_along(daysObj()), function(i){
+      ix <- which(dayOfPos()==daysObj()[i])
       if (!(1 %in% ix)) ix <- c(min(ix)-1,ix) #add last position before this day
-      if (length(ix)>1) sum(distVincentyEllipsoid(st_coordinates(data_sel_id()[ix,])),na.rm=TRUE)/1000 else 0
-    }})
+      if (length(ix)>1) sum(distVincentyEllipsoid(p1=coo[ix,,drop=FALSE]),na.rm=TRUE)/1000 else 0
+    }, numeric(1))
+  })
   
   avgdaily_dist2posi <- reactive({
-    foreach(dayi = daysObj(), .combine=c) %do% {
-      ix <- which(as.Date(mt_time(data_sel_id()))==dayi)
-      mean(distVincentyEllipsoid(st_coordinates(data_sel_id()[ix,]),refPos())/1000,na.rm=TRUE)
-    }})
+    coo <- st_coordinates(data_sel_id())
+    vapply(seq_along(daysObj()), function(i){
+      ix <- which(dayOfPos()==daysObj()[i])
+      mean(distVincentyEllipsoid(p1=coo[ix,,drop=FALSE], p2=refPos())/1000, na.rm=TRUE)
+    }, numeric(1))
+  })
   
   ##### table output
-  output$foo <- DT::renderDataTable(
-    overviewObj_named()[o(),],escape = FALSE, selection = 'none', server = FALSE,
-    options = list(dom = 't', paging = FALSE, ordering = FALSE, rownames=FALSE, scrollY=250, scrollCollapse = TRUE)
+  output$foo <- DT::renderDataTable({
+    tb <- overviewObj()[o(),]
+    ## radio buttons to select the track for plots and map. The selected track stays checked when the table is sorted again
+    ## IDs are escaped, as they are inserted into HTML
+    selected <- isolate(input$C)
+    show <- sprintf('<input type="radio" name="%s" value="%s"%s/>',
+                    ns("C"), htmltools::htmlEscape(tb$ids, attribute=TRUE), ifelse(as.character(tb$ids) %in% selected, " checked", ""))
+    tb <- cbind(show, tb)
+    names(tb) <- c("Show Plots and Map","Animal","Tag","First timestamp UTC","Last timestamp UTC","Last timestamp local tz","N positions last 24h","N positions last 7d","Moved distance last 24h (km)","Moved distance last 7d (km)","Event last 7d")
+    tb
+  }, escape = -1, rownames = FALSE, selection = 'none', server = FALSE, # escape all columns except the radio buttons
+  options = list(dom = 't', paging = FALSE, ordering = FALSE, scrollY=250, scrollCollapse = TRUE)
   )
   
   ##### plots
@@ -393,7 +413,7 @@ shinyModule <- function(input, output, session, data){
     validate(need(nrow(data_sel_id())>0, noDataMsg))
     bounds <- as.vector(st_bbox(data_sel_id()))
     outl <- leaflet() %>%
-      fitBounds(bounds[1], bounds[2], bounds[3], bounds[4]) %>%
+      setMapView(bounds=bounds) %>%
       addTiles(group = "StreetMap") %>%
       addProviderTiles("Esri.WorldTopoMap",group = "TopoMap") %>%
       addProviderTiles("Esri.WorldImagery", group = "Aerial") %>%
@@ -413,7 +433,7 @@ shinyModule <- function(input, output, session, data){
     outl
   })
   
-  return(reactive({ current() })) 
+  return(reactive({ data })) # input data unchanged
 }
 
 
