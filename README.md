@@ -10,13 +10,13 @@ This App provides an interactive update of your (recent) tracking data. It gives
 ## Documentation
 This App lets the user interactively explore the input Movement data set, which is usually downloaded from Movebank and contains data from presently deployed and running tags. It gives a `Morning Report` of how the animals and tags are/were doing.
 
-In the tab "Settings" different settings can be adjusted. The *reference timestamp* (either user-defined or by default NOW) can be adjusted. This reference timestamp is used as end timestamp for all plots and the map. For reference the last timestamp of the data set is displayed. The *migration buffer* and the *mortality buffer* can be set. And the *reference position* can be selected by clicking on the map or by default the last location will be selected.
+In the tab "Settings" different settings can be adjusted. The *reference timestamp* (either user-defined or by default NOW) can be adjusted. This reference timestamp is used as end timestamp for all plots and the map. For reference the last timestamp of the data set is displayed. The *migration buffer* and the *mortality buffer* can be set. And the *reference position* can be selected by clicking on the map; if none is selected, the last position of the selected animal within the selected time window (i.e. its most recent position at or before the reference time) is used.
 
 In the tab "Visualization", on the top an overview table is displayed providing a data overview: For each animal and tag it shows the first and last timestamp (the last timestamp also in the local time zone of the last position), the number of positions and distance traveled (in km) during the last 24 hours or 7 days, respectively. If the animal was migrating, dead or had no data during the last 7 days then the appropriate event will be indicated (see the migration and mortality buffer settings below). In the left column of the table, single individuals can be selected for plotting selected properties and a map in the lower part. If no individual is selected, the first individual of the table that has locations in the selected time interval is shown.
 
 In the sidebar one can select the column name according to which the rows in the table shall be ordered (in ascending or descending order). The time slider defines the time window for the plots and the map as the number of days before the reference timestamp (at most 140 days = 20 weeks); the resulting start and end timestamps are shown below the slider. All plots and the map react on the time slider.
 Below the time slider, three drop down selection menus allow to define which data attribute or calculated daily data property shall be shown in the three plots.
-The reference location or in its absence the last location of the track is used as the reference point for the Net Square Displacement and the average daily distance. The displacement per day is calculated for each single calendar day (UTC) and includes the step from the last position of the previous day.
+The reference position or, if none is selected, the last position of the selected animal within the selected time window (i.e. its most recent position at or before the reference time) is used as the reference point for the Net Square Displacement and the average daily distance. Note that this fallback position changes when another animal is selected or the time window is changed. The displacement per day is calculated for each single calendar day (UTC) and includes the step from the last position of the previous day.
 
 The leaflet map on the right side shows the track of the selected animal in the selected time interval (the selected number of days before the reference timestamp). All positions are shown as blue points, connected by light blue lines. The most recent 3 positions are highlighted in red so that the present location of the animal can easily be picked out. The points and lines can be disabled and enabled. The background map can be selected as StreetMap (OpenStreetMap), TopoMap or Aerial. Note that the map can easily be zoomed in and out.
 
@@ -51,14 +51,14 @@ Tab "Settings":
 
 `Mortality buffer in m (last 7 days)` (dead7d_dist): user-defined distance that an animal of the respective species is expected to minimally move during 7 days if it is alive. Take into account the data resolution, which can also miss longer displacements. This variable is used to define the event `dead` that is reported in the overview table: if all positions of the last 7 days are within this distance of their mean position. At least 2 positions in the last 7 days are needed to report `dead`. Unit: `m`. Default: `100`.
 
-`Reference position` (click on the map; `Lat` (posLat) and `Lon` (posLon)): select reference position, by clicking on the map, to which the net square displacement and the average daily distances are calculated. Typically this is the observer position in the field, if one wants to find out if any tagged animals are in the surroundings. The coordinates can also be typed into the `Lat` and `Lon` fields below the map; both are needed. Unit: decimal degrees. Default: none, the last position of each track is used.
+`Reference position` (click on the map; `Lat` (posLat) and `Lon` (posLon)): select reference position, by clicking on the map, to which the net square displacement and the average daily distances are calculated. Typically this is the observer position in the field, if one wants to find out if any tagged animals are in the surroundings. The coordinates can also be typed into the `Lat` and `Lon` fields below the map; both are needed. Unit: decimal degrees. Default: none, the last position of the selected animal within the selected time window (i.e. its most recent position at or before the reference time) is used.
 **NOTE:** currently when the settings are stored in a previous session, and the app is opened again, the reference position will not appear on the map, but the coordinates are still saved and shown on the bottom left below the map. Typed coordinates are also not drawn on the map.
 
-`Reset to last position of track` (set2Na): Click to remove selected position from the map and the `Lat`/`Lon` fields, and use the last position of the selected animal as a reference point.
+`Reset to last position of track` (set2Na): Click to remove selected position from the map and the `Lat`/`Lon` fields, and use the last position of the selected animal within the selected time window (i.e. its most recent position at or before the reference time) as reference point.
 
 Tab "Visualization":
 
-`Show Plots and Map` (C): choose which track should be shown in the plots and the map. Default: the first track of the table that has locations in the selected time interval.
+`Show Plots and Map` (C): choose which track should be shown in the plots and the map. The selected track is stored with the settings; if the stored track is not in the data of a later run, the default is used. Default: the first track of the table that has locations in the selected time interval.
 
 `Select property by which to sort the overview table` (sort_table): choose column by which to sort the table above. Default: animal name.
 
@@ -66,7 +66,7 @@ Tab "Visualization":
 
 `Choose time window for map and plots (days before the reference time)` (days_back): length of the time window shown in the plots and the map, counted back from the reference timestamp (selected in Tab Settings). The resulting start and end timestamps are shown below the slider. As the window is stored as a number of days, a stored setting keeps the same window length when the reference time changes, e.g. with "Always use date and time 'NOW'" in a scheduled workflow. Unit: days. Default: `140` (20 weeks, the maximum).
 
-`Select which data attribute to plot` (attr) / `Select which second data attribute to plot` (attr2): select which data attribute should be shown in the first and the second plot. All numeric attributes of the data that are not empty can be selected, apart from identifiers (time, track id, columns ending in `_id` and 64-bit integer columns such as checksums). Default: net square displacement (km2).
+`Select which data attribute to plot` (attr) / `Select which second data attribute to plot` (attr2): select which data attribute should be shown in the first and the second plot. All numeric attributes of the data that are not empty can be selected, apart from identifiers (time, track id, columns ending in `_id` and 64-bit integer columns such as checksums). The selection is stored with the settings; if a stored attribute does not exist in the data of a later run, the net square displacement is shown. Default: net square displacement (km2).
 
 `Select which daily property to plot` (prop): select which calculated daily property should be shown in the third plot: number of positions per day, displacement per day (km) or average daily distance to the selected position (km). Default: number of positions per day.
 
@@ -80,7 +80,7 @@ The input data remains unchanged.
 
 **Setting `Date` and `Time`:** By default the reference time is set to NOW. The present timestamp is extracted in UTC from the MoveApps server system. If the selected animal does not have any locations within the 20 weeks before the selected reference time (default NOW), a message is displayed instead of the plots and map. Check the time span of the data in the overview table in the tab "Visualization", adjust the date and uncheck the "NOW" box.
 
-**Setting `Reference position`:** If no location is chosen, for each animal the last available position is used as reference for the calculation of the net square displacement and the average daily distances to a position.
+**Setting `Reference position`:** If no location is chosen, the last position of the selected animal within the selected time window (its most recent position at or before the reference time) is used as reference for the calculation of the net square displacement and the average daily distances to a position.
 
 **Setting `Migration buffer in km (last 7 days)`:** The parameter has an explicit default value. If the field is left empty, the event `migration` is not evaluated.
 
@@ -88,7 +88,7 @@ The input data remains unchanged.
 
 **Setting `Reference position` with typed coordinates:** If the typed latitude is not between -90 and 90 or the longitude not between -180 and 180, a message is displayed instead of the net square displacement and average daily distance plots.
 
-**Setting `Select which data attribute to plot`:** If the selected attribute has no values for the selected animal in the selected time interval, a message is displayed instead of the plot. If a stored attribute does not exist in the data (e.g. the workflow now uses other data), a message asks to select another attribute.
+**Setting `Select which data attribute to plot`:** If the selected attribute has no values for the selected animal in the selected time interval, a message is displayed instead of the plot. If a stored attribute does not exist in the data (e.g. the workflow now uses other data), the net square displacement is shown instead.
 
 **Input data:** The App stops with an error if the input data have no coordinate reference system (CRS).
 
@@ -100,4 +100,4 @@ The input data remains unchanged.
 - The local time zone of the last position is looked up with `lutz::tz_lookup_coords()` (method "accurate"); the local time is calculated with `lubridate::with_tz()` for the exact moment of the last position (including daylight saving time) and shown with the time zone abbreviation.
 - All timestamps, the reference time and the calendar days of the daily properties are in UTC.
 - Locations within a track are assumed to be ordered by time: the last position of a track is the last location in the data.
-- Selected settings are stored with the "Store settings" button (Shiny bookmark) and restored in the next run of the workflow.
+- Selected settings are stored with the "Store settings" button (Shiny bookmark) and restored in the next run of the workflow. This includes the reference date and time, the time window, the selected attributes and the selected track.

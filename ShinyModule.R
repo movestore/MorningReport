@@ -22,7 +22,7 @@ shinyModuleUserInterface <- function(id, label){
                         h5("Check the box 'Always use 'NOW'' to use the 'NOW' date and time of each run of a scheduled workflow, date and time will be updated at each run. Uncheck the box if you want to use a fixed date and time."),
                         verbatimTextOutput(ns("ts_lastPos")),
                         column(3,dateInput(ns("date"),"Date:", value = as_date(now("UTC")))),
-                        column(2,shinyTime::timeInput(ns("time"), "Time (24h format):",value= now("UTC"), seconds = FALSE)), 
+                        column(2,shinyTime::timeInput(ns("time"), "Time (24h format):",value= restoreInput(id=ns("time"), default=now("UTC")), seconds = FALSE)), 
                         column(2, checkboxInput(ns("alwaysNOW"), "Always use date and time 'NOW'", value=TRUE),style = 'top: 25px;position:relative;',
                         bsTooltip(id=ns("alwaysNOW"), title="Checked: When this app is part of a scheduled workflow, each time the workflow runs, it will use the date and time of moment when the app is executed. Unchecked: the selected date and time will be fixed.", placement = "bottom", trigger = "hover", options = list(container = "body")))
                       ),
@@ -252,8 +252,16 @@ shinyModule <- function(input, output, session, data){
   })
   
   # generate reactive parameters for plots and map
+  ## track selected with the radio buttons of the table. Stored with the settings (bookmark) and restored in the next run
+  ## (the hand-made radio buttons do not restore themselves, and input$C only exists after a click in this session)
+  selTrack <- reactiveVal(NULL)
+  observeEvent(input$C, selTrack(input$C))
+  onBookmark(function(state) state$values$selTrack <- selTrack())
+  onRestore(function(state) selTrack(state$values$selTrack))
+  
   selID <- reactive({
-    if (!is.null(input$C)) return(input$C)
+    ## selected track, if it exists in the data (a stored track may not be in the data of this run)
+    if (isTRUE(selTrack() %in% trackInfo$ids)) return(selTrack())
     ## default: first track in the (sorted) table that has locations between start time and reference time
     req(start_time(), time_now())
     idsSorted <- trackInfo[o(),"ids"]
@@ -278,18 +286,25 @@ shinyModule <- function(input, output, session, data){
     names()
 
   ## the choices are only known here, so the selection stored in the bookmark (stored settings) is set again
+  ## a stored attribute that does not exist in the data of this run falls back to the net square displacement
+  attrChoices <- c("net square displacement (km2)"="nsd",attrNames)
+  restoreAttr <- function(id){
+    stored <- restoreInput(id=ns(id), default="nsd")
+    if (length(stored)==1 && stored %in% attrChoices) stored else "nsd"
+  }
+  
   updatePickerInput(
     session,
     inputId="attr",
-    choices=c("net square displacement (km2)"="nsd",attrNames),
-    selected=restoreInput(id=ns("attr"), default="nsd")
+    choices=attrChoices,
+    selected=restoreAttr("attr")
   )
 
   updatePickerInput(
     session,
     inputId="attr2",
-    choices=c("net square displacement (km2)"="nsd",attrNames),
-    selected=restoreInput(id=ns("attr2"), default="nsd")
+    choices=attrChoices,
+    selected=restoreAttr("attr2")
   )
   
   timeObj <- reactive({
@@ -355,7 +370,7 @@ shinyModule <- function(input, output, session, data){
     tb <- overviewObj()[o(),]
     ## radio buttons to select the track for plots and map. The selected track stays checked when the table is sorted again
     ## IDs are escaped, as they are inserted into HTML
-    selected <- isolate(input$C)
+    selected <- tryCatch(isolate(selID()), error=function(e) NULL) # NULL while selID() is not available yet
     show <- sprintf('<input type="radio" name="%s" value="%s"%s/>',
                     ns("C"), htmltools::htmlEscape(tb$ids, attribute=TRUE), ifelse(as.character(tb$ids) %in% selected, " checked", ""))
     tb <- cbind(show, tb)
