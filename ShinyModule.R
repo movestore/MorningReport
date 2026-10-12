@@ -12,11 +12,29 @@ library("lubridate")
 library("shinyBS")
 library("shinycssloaders")
 
+## value of shinyTime::timeInput() as a time on a fixed day (1970-01-01, UTC) instead of the current day (replaces shinyTime's own conversion).
+## Only the time of day is used. With the current day, a stored time (settings) would differ from the restored time on any other day,
+## and MoveApps would warn on every run that the stored settings do not fit
+registerInputHandler("my.shiny.timeInput", function(data, ...){
+  data[sapply(data, is.null)] <- 0
+  as.POSIXct(sprintf("1970-01-01 %02d:%02d:%02d", as.integer(data$hour), as.integer(data$min), as.integer(data$sec)), tz="UTC")
+}, force=TRUE)
+
 
 shinyModuleUserInterface <- function(id, label){
   ns <- NS(id)
   navbarPage("Morning Report",
              tabPanel("Settings",
+                      ## grey out date and time while "Always use date and time 'NOW'" is checked, as they are not used then
+                      tags$script(HTML(sprintf("
+                        $(function(){
+                          function toggleDateTime(){
+                            var useNow = $('#%1$s').prop('checked');
+                            $('#%2$s input, #%3$s input').prop('disabled', useNow);
+                          }
+                          $(document).on('change', '#%1$s', toggleDateTime);
+                          $(document).on('shiny:connected', toggleDateTime);
+                        });", ns("alwaysNOW"), ns("date"), ns("time")))),
                       fluidRow(
                         h5("1. Define your reference date and time, i.e. the date and time from which you want to look back at your data. If your tags are still functioning, this is typically ‘NOW’ in UTC. If you don’t change the date and time, ‘NOW’ will be used by default."),
                         h5("Check the box 'Always use 'NOW'' to use the 'NOW' date and time of each run of a scheduled workflow, date and time will be updated at each run. Uncheck the box if you want to use a fixed date and time."),
