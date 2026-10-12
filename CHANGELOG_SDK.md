@@ -1,49 +1,107 @@
-# Changelog SDK
+# Changelog
 
-## 2024-02 `v3.1.0`
+All notable changes to this project will be documented in this file.
 
-- introduce `appspec.json` version `1.2`
-    - removed `createsArtifacts`. It is safe to remove it completely from your `appspec.json` - MoveApps tries now to fetch artifacts for every running App.
-    - verify to include the `null` option for setting types `DROPDOWN` and `RADIOBUTTONS` if `defaultValue` is set to `null`.
-- drop `move1` dependency
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## 2023-12 `v3.0.5`
+## [4.0.1] - 2026-09
 
-- update of input files for testing apps. Files now include `move2_loc` and `telemetry.list` I/O types, and projected and not projected data. All details included in the README.txt in the data/raw folder.
+### Added
+- `cmake` to the `Dockerfile`: `rocker/geospatial` dropped it with R `4.5.3`, and without it `s2` — and therefore `sf` and `move2` — cannot be built
 
-## 2023-11 `v3.0.4`
+### Changed
+- Upgraded `R` to version `4.6.1` (`renv.lock` + `Dockerfile`)
+    - Your fork keeps its own `renv.lock` and `renv/` — both are listed in `.github/.templatesyncignore` and are not synced. After taking this update, `renv` reports an R version mismatch against the new base image. To follow along, run `renv::restore()` inside a container built from the new `Dockerfile` and commit the regenerated `renv.lock`. If your App uses neither Docker nor `renv`, nothing changes for you.
+- Upgraded the [`moveapps`](https://github.com/movestore/moveapps-sdk-r-package) SDK package to `v1.0.3`
+- Upgraded `renv` to `1.2.4`
 
-- Upgrade `R` framework to `4.3.2`
+## [4.0.0] - 2025-10
 
-## 2023-10 `v3.0.3`
+### Added
+- Support for R source scripts from the `./src/app/` directory (must be sourced by the App Developer on their own)
 
-- bugfix result/output observation (`'data' must be 2-dimensional`)
+### Changed
+- Extracted MoveApps SDK scripts to R package [moveapps](https://github.com/movestore/moveapps-sdk-r-package) while keeping backward compatibility to v3
+- Upgraded R to version 4.5.1 (`renv.lock` + `Dockerfile`)
 
-## 2023-09 `v3.0.2`
+### Removed
+- App setting type `LOCAL_FILE` and its associated function `getAppFilePath()`
 
-- introduce `appspec.json` version `1.1`
-    - documentation link is not required any more
+## [3.3.0] - 2025-08
 
-## 2023-08 `v3.0.1`
+### Added
+- Extract app settings as a JSON file (bookmark.json)
 
-- removed MoveApps IO-Type dependency
-- provide new `move2` input files
-- bugfix app-file loading
+## [3.2.0] - 2024-03
 
-## 2023-06 `v3.0.0`
+### Added
+- Introduce app-setting-type `USER_FILE`
 
-- introduces template versioning (starting w/ `v3.0.0` as this is the third major iteration)
-- introduces `dotenv` to control/adjust local app-development
-- updates developer readme
-- clear app output of previously app run at each start of the SDK
-- introduces a _Template Synchronization_ GH action. Use it to synchronize your forked app with template updates. If you already forked from the template _before_ SDK `v3.0.0` you can (*only use this option if your app is written for input data of class `move2`*): 
-    1. manually add the files `.github/workflows/template-sync.yml` and `.github/.templatesyncignore` to your fork. 
-    1. with these files you can manually execute the GH action named _.github/workflows/template-sync.yml_. 
-    1. after merging the generated pull request add the file `app-configuration.json` manually to the root directory of your App.
+### Deprecated
+- App-setting-type `LOCAL_FILE`
 
-- fix app-configuration for execution on moveapps.org
-- clear app output of previously app run at each start of the SDK
+## [3.1.0] - 2024-02
 
-- SDK supports [`move2`](https://gitlab.com/bartk/move2/), if input is of class [`move`](https://gitlab.com/bartk/move/) it will be converted into class `move2`.
-- output is always move2
-- Upgrade `R` framework to `4.3.1`
+### Added
+- Introduce `appspec.json` version `1.2`
+    - Verify to include the `null` option for setting types `DROPDOWN` and `RADIOBUTTONS` if `defaultValue` is set to `null`
+
+### Changed
+- MoveApps now tries to fetch artifacts for every running App
+
+### Removed
+- `createsArtifacts` from `appspec.json` (v1.2). It is safe to remove it completely from your `appspec.json`.
+- `move1` dependency
+
+## [3.0.5] - 2023-12
+
+### Changed
+- Updated input files for testing apps. Files now include `move2_loc` and `telemetry.list` I/O types, and projected and non-projected data. All details included in the README.txt in the data/raw folder
+
+## [3.0.4] - 2023-11
+
+### Changed
+- Upgraded `R` framework to `4.3.2`
+
+## [3.0.3] - 2023-10
+
+### Fixed
+- Result/output observation (`'data' must be 2-dimensional`)
+
+## [3.0.2] - 2023-09
+
+### Added
+- Introduce `appspec.json` version `1.1`
+    - Documentation link is not required anymore
+
+## [3.0.1] - 2023-08
+
+### Added
+- Provide new `move2` input files
+
+### Changed
+- Removed MoveApps IO-Type dependency
+
+### Fixed
+- App-file loading
+
+## [3.0.0] - 2023-06
+
+### Added
+- Template versioning (starting with `v3.0.0` as this is the third major iteration)
+- `dotenv` to control/adjust local app development
+- Template Synchronization GitHub action to synchronize your forked app with template updates
+    - If you already forked from the template before SDK `v3.0.0` you can (*only use this option if your app is written for input data of class `move2`*):
+        1. Manually add the files `.github/workflows/template-sync.yml` and `.github/.templatesyncignore` to your fork
+        2. With these files you can manually execute the GitHub action named `.github/workflows/template-sync.yml`
+        3. After merging the generated pull request add the file `app-configuration.json` manually to the root directory of your App
+- SDK supports [`move2`](https://gitlab.com/bartk/move2/)
+    - If input is of class [`move`](https://gitlab.com/bartk/move/) it will be converted into class `move2`
+    - Output is always `move2`
+
+### Changed
+- Updated developer readme
+- Upgraded `R` framework to `4.3.1`
+- Clear app output of previously app run at each start of the SDK
+- Fixed app configuration for execution on moveapps.org
